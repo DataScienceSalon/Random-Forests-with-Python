@@ -1,0 +1,18 @@
+# Introduction
+Random forests, a tree-based method which can be to applied both regression and classification problems, has a number of advantages over some more classical approaches.  Several of the major advantages include:  
+
+* Trees can be displayed graphically and are typically easier to interpret than most other models, including linear regression.  
+* Some believe that tree-based approaches more closely mirror human decision making than do more classical regression and classification methods.  
+* Decision trees implicitly perform variable screening or feature selection since the top few nodes on which the tree is split are invariably the most important variables within the dataset.    
+* Trees require less data preprocessing than other methods as scaling, normalization, and the creation of dummy variables for qualitative predictors are not necessary.   
+
+This vignette describes an application of random forests in python to a prediction problem in seven parts.   
+
+1. Business Case    
+2. Introduction to Random Forests   
+3. Data   
+4. Modeling     
+5. Prediction     
+6. Evaluation   
+7. Conclusion  
+
