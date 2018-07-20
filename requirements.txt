@@ -1,0 +1,10 @@
+pandas
+os
+matplotlib
+matplotlib.pyplot
+sklearn
+numpy
+seaborn
+time
+datetime
+tabulate
