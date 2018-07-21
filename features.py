@@ -63,47 +63,6 @@ compliance [target variable for prediction]
  1 = Responsible, compliant
 compliance_detail - More information on why each ticket was marked 
 compliant or non-compliant
-
-Variable Exclusion:
-The following variables have been excluded from the analysis and modeling stages:
-ticket_id - not generalizable to new observations
-inspector_name - not generalizable to new observations given the training and test set time periods
-violation_street_number - not relevant to prediction task
-violation_street_name - too many categorical levels
-violation_zip_code - missing data
-mailing_address_str_number - not relevant to prediction task
-mailing_address_str_name - too many categorical levels
-non_us_str_code - too few non-null valies
-violation_description - redundant with violation_code
-disposition - redundant with compliance
-fine_amount, admin_fee, state_fee, late_fee, discount_amount, and clean_up_costs are 
-redundant with judgment_amount
-payment_amount - not available in test data
-balance_due - not available in test data
-payment_date - not available in test data
-payment_status - not available in test data
-collection_status - redundant with compliance
-grafitti_status - null
-compliance_detail - redundant with compliance
-
-Variables Included:
-The following variables have been retained for further analysis, feature engineering,
-selection and modeling:
-agency_name
-violator_name
-city
-state
-zip_code
-country
-ticket_issued_date
-hearing_date
-violation_code
-judgment_amount
-compliance
-address
-lat
-lon
-
 '''
 #%%
 # =============================================================================
@@ -132,35 +91,55 @@ def read():
     return train
 # =============================================================================
 def preprocess(df, train = True):
-    '''
-    Filters, formats and cleans data
-    '''
-    #-------------------------------------------------------------------------#
-    # Select predictors and target variables                                  #
-    #-------------------------------------------------------------------------#
-    Xy = ['agency_name', 'violator_name', 'city', 'state', 'zip_code',
-    'country', 'ticket_issued_date', 'hearing_date', 'violation_code',
-    'judgment_amount', 'compliance', 'address', 'lat', 'lon'] 
-    df = df[Xy]
-
     #-------------------------------------------------------------------------#
     # Filter non-responsible observations                                     #
     #-------------------------------------------------------------------------#
     if (train == True):
-        df = df[pd.notnull(df['compliance'])]       
+        df = df[pd.notnull(df['compliance'])]   
     
     #-------------------------------------------------------------------------#
-    # violator_name: Remove non alphabetic characters                         #
+    # Combine agency name levels                                              #
+    #-------------------------------------------------------------------------#
+    df = df.replace(["Health Department",    "Detroit Police Department",
+     "Neighborhood City Halls"], "Police, Health, City Hall")
+    
+    #-------------------------------------------------------------------------#
+    # Remove non alphabetic characters from violator name                     #
     #-------------------------------------------------------------------------#
     df['violator_name'] = df.violator_name.replace("[^a-zA-Z\s+]", "", regex = True)
-    
-    #-------------------------------------------------------------------------#
-    # city: Correct spelling of Detroit                                       #
-    #-------------------------------------------------------------------------#
-    df['city'].replace(['Det', 'Detroit'], 'Detroit')
 
     #-------------------------------------------------------------------------#
-    # Impute missing hearing dates:ticket_issued_date + median payment_window # 
+    # Calculate total violations to date                                      #
+    #-------------------------------------------------------------------------#
+    v = df.groupby(['violator_name', 'ticket_issued_date'])['ticket_id'].count().reset_index()
+    v['total_violations'] = v.groupby(['violator_name'])['ticket_id'].cumsum()
+    v = v.drop('ticket_id', axis = 1)
+    df = pd.merge(df, v, how = 'left', on=['violator_name', 'ticket_issued_date'])
+        
+    #-------------------------------------------------------------------------#
+    # Create out_of_state dummy variable                                      #
+    #-------------------------------------------------------------------------#
+    df['out_of_state'] = np.where(df['state'] == "MI", 0,1)   
+
+    #-------------------------------------------------------------------------#
+    # Decode mailing zip code into regions                                    #
+    #-------------------------------------------------------------------------#
+    df['region'] = df.zip_code.str[:3]
+
+    #-------------------------------------------------------------------------#
+    # Regional Compliance/Non-Compliance                                      #
+    #-------------------------------------------------------------------------#
+    region = df.groupby(['region', 'compliance'])['violation_code'].count().reset_index()
+    non_compliant = region[region.compliance == 0][["region", "violation_code"]]
+    compliant = region[region.compliance == 1][["region", "violation_code"]]
+    non_compliant.columns = ["region","region_non_compliance"]
+    compliant.columns = ["region","region_compliance"]
+    print(non_compliant.head())
+    # compliant = region[region["compliance" == "Compliant"]]["Region", "Counts"]
+    #non_compliant = region[region["Compliance" == "Non-Compliant"]]["Region", "Counts"]
+    #df = merge(df, compliant, on.x = "region", on.y = "Region")
+    #-------------------------------------------------------------------------#
+    # Impute missing hearing dates as ticket_issued_date + mean payment_window# 
     #-------------------------------------------------------------------------#
     pd.options.mode.chained_assignment = None
     df['ticket_issued_date'] = pd.to_datetime(df['ticket_issued_date'])
@@ -176,41 +155,28 @@ def preprocess(df, train = True):
     
     df = pd.concat([df1, df2])
     df = df[df['payment_window'] >= datetime.timedelta(0)]
-    df['payment_window'] = df['payment_window'] / np.timedelta64(1, 'D')    
+    df['payment_window'] = df['payment_window'] / np.timedelta64(1, 'D')
     
     #-------------------------------------------------------------------------#
-    # Replace NA and NaN with zero                                            # 
-    #-------------------------------------------------------------------------#    
+    # Convert lat / long to x,y,z coordinates                                 # 
+    #-------------------------------------------------------------------------#
+    df['x'] = np.cos(np.radians(df['lat'])) * np.cos(np.radians(df['lon']))
+    df['y'] = np.cos(np.radians(df['lat'])) * np.sin(np.radians(df['lon']))
+    df['z'] = np.sin(np.radians(df['lat']))
+
+    #-------------------------------------------------------------------------#
+    # Designate predictors and target                                         # 
+    #-------------------------------------------------------------------------#
+    if (train == True):
+        Xy = ['agency_name', 'region', 'out_of_state', 'x', 'y', 'z',
+        'total_violations','ticket_issued_date', 'hearing_date', 'payment_window',
+        'violation_code', 'judgment_amount', 'compliance']
+        df = df[Xy]
     df = df.fillna(0)
     return(df)
 # =============================================================================
-def transform(df):
-    #-------------------------------------------------------------------------#
-    # agency_name: Combine agency name levels                                 #
-    #-------------------------------------------------------------------------#
-    df = df.replace(["health department",    "Detroit Police Department",
-     "Neighborhood City Halls"], "Police, Health, City Hall")
-
-    #-------------------------------------------------------------------------#
-    # Decode mailing zip code into regions                                    #
-    #-------------------------------------------------------------------------#
-    df['region'] = df.zip_code.str[:3]
-
-    #-------------------------------------------------------------------------#
-    # Create dummy variables for out of state payors                          #
-    #-------------------------------------------------------------------------#
-    df['out_of_state'] = np.where(df['state'] == "MI", 0, 1)
-
-    #-------------------------------------------------------------------------#
-    # Lowercase all string columns                                            #
-    #-------------------------------------------------------------------------#
-    df = df.applymap(lambda s:str(s).lower() if type(s) == str else s)
-
-    return(df)
-   
-# =============================================================================
 def write(df):
-    df.to_csv(os.path.join(settings.CLEAN_DATA_DIR, "train.csv"),
+    df.to_csv(os.path.join(settings.PROCESSED_DATA_DIR, "train.csv"),
     index = False, index_label = False)
 # =============================================================================
 if __name__ == "__main__":
