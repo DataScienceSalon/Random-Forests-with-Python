@@ -1,50 +1,143 @@
 # Data
-All data for this project has been provided through the Detroit Open Data Portal. Two data files are provided for use in training and validating our models: train.csv and test.csv. Each row in these two files corresponds to a single blight ticket, and includes information about when, why, and to whom each ticket was issued. The target variable is compliance, which is True if the ticket was paid early, on time, or within one month of the hearing data, False if the ticket was paid after the hearing date or not at all, and Null if the violator was found not responsible. Compliance, as well as a handful of other variables that will not be available at test-time, are only included in train.csv.
+This is first of a series of articles on the random forests algorithm and its application to the prediction task in Python. Here, we'll conduct variable selection, data preprocessing, feature engineering, and exploratory data analysis to produce the features that will optimize the predictive power of our machine learning algorithm.
 
-Note: All tickets where the violators were found not responsible are not considered during evaluation. They are included in the training set as an additional source of data for visualization, and to enable unsupervised and semi-supervised approaches. However, they are not included in the test set.
+## Overview
+All data for this project have been provided courtesy of the Detroit Open Data Portal. The primary datasets that we will use to train and validate our models are train.csv and test.csv. Each row in these two files corresponds to a single blight ticket, and includes information about when, why, and to whom each ticket was issued. The target variable is compliance, which is True if the ticket was paid early, on time, or within one month of the hearing date, False if the ticket was paid after the hearing date or not at all, and Null if the violator was found not responsible. Compliance, as well as a handful of other variables that will not be available at test-time, are only included in train.csv. In addition, all tickets where the violators were determined to be "not responsible" are not considered during evaluation. They are included in the training set as an additional source of data for visualization, and to enable unsupervised and semi-supervised approaches. However, they are not included in the test set. Two additional datasets are provided for geolocation purposes; addresses.csv and latlons.csv. The former contains the violation addresses mapped to ticket_ids and the latter maps the addresses to latitude and longitude coordinates. 
 
-## Codebook
+The code book for the dataset is included in appendix.
 
-File descriptions:  
-* train.csv - the training set (all tickets issued 2004-2011)   
-* test.csv - the test set (all tickets issued 2012-2016)  
-* addresses.csv & latlons.csv - mapping from ticket id to addresses, and from addresses to lat/lon coordinates. Note: misspelled addresses may be incorrectly geolocated.  
+## Read the Data
+The following script reads the training data into a pandas dataframe and combines the address and latitude and longitude information. We also split the training set into a training set containing observations from 2004 thru 2008, and a validation set containing observations from 2009 thru 2011. The validation set will be used to tune the parameters of our predictive model.
 
-Data fields
+```{python read_func, code = readLines("../data.py")[112:134], echo = TRUE, eval = TRUE}
+```
 
-train.csv & test.csv
+```{python read, echo = FALSE}
+train, validation = read()
+```
 
-* ticket_id - unique identifier for tickets   
-* agency_name - Agency that issued the ticket  
-* inspector_name - Name of inspector that issued the ticket  
-* violator_name - Name of the person/organization that the ticket was issued to   
-* violation_street_number, violation_street_name, violation_zip_code - Address where the violation occurred  
-* mailing_address_str_number, mailing_address_str_name, city, state, zip_code, non_us_str_code, country - Mailing address of the violator  
-* ticket_issued_date - Date and time the ticket was issued   
-* hearing_date - Date and time the violator's hearing was scheduled   
-* violation_code, violation_description - Type of violation   
-* disposition - Judgment and judgement type   
-* fine_amount - Violation fine amount, excluding fees   
-* admin_fee - $20 fee assigned to responsible judgments   
-* state_fee - $10 fee assigned to responsible judgments   
-* late_fee - 10% fee assigned to responsible judgments   
-* discount_amount - discount applied, if any   
-* clean_up_cost - DPW clean-up or graffiti removal cost   
-* judgment_amount - Sum of all fines and fees   
-* grafitti_status - Flag for graffiti violations   
+## Data Summary
+Our objective at this stage is to obtain a high level sense of the data and to begin shaping our variable inclusion and feature engineering decisions. Essentially, we want to avoid categorical variables that have too many levels, have many levels that rarely occur, or have one level that almost always occurs. Continuous predictors should be characterized by the absences of extreme skewness, a spike at one level and a distribution at others, and one level that almost always occurs. We also want to make use of time-dependent or historical compliance data.
+
+That said, lets summarize and analyze some data. The Pandas describe method, which provides summary statistics for both quantitative and qualitiative predictors, is well suited for this purpose.
+```{python summary_func, code = readLines("../data.py")[141:149], echo = TRUE, eval = TRUE}
+```
+
+```{python sum_stats_func}
+qual, quant = sum_stats(train, verbose = False)
+```
+
+`r kfigr::figr(label = "qual", prefix = TRUE, link = TRUE, type="Table")`: Qualitative Variable Summary
+```{python qual_stats, echo=FALSE}
+import visual
+visual.print_df(qual)
+```
+The table in `r kfigr::figr(label = "qual", prefix = TRUE, link = TRUE, type="Table")` summarizes each categorical variable in terms of total count, unique values, the most frequently occuring level and its frequency. Of the 19 qualitative variables, we can eliminate disposition, payment_date, payment_status, and collection_status, as they are not included in the test set. Address, violation_street_name, and mailing_address_str_name are overly grandular and country contains levels that rarely occur. That said, the following variables are worth closer examination:  
+* agency_name   
+* inspector_name   
+* state    
+* violation_code   
+
+Let's create two new variables that distinguish out-of-town and out-of-state violators:  
+* out_of_town - violators with mailing addresses outside of Detroit.  
+* out_of_state - violators with mailing addresses outside of Michigan.   
+
+Lastly, recasting the zip_code variable, using the first three digits will provide regional level of granularity. 
+
+Next, we characterize the quantitative variables. The quantitative variables of interest include the judgment_amount, ticket_issued_date, and hearing_date, (not shown) and the binary compliance indicator. The other fees, costs and discounts are expressed in the judgment_amount variable.  Ticket_id and street numbers hold no predictive value.  
+
+`r kfigr::figr(label = "quant", prefix = TRUE, link = TRUE, type="Table")`: Quantitative Variable Summary
+```{python quant_stats, echo=FALSE}
+import visual
+visual.print_df(quant)
+```
+
+First, let's create a variable, payment_window, which reflects the number of days between the ticket_issued_date and the hearing_date, and a variable, daily_payment, equal to the judgment amount devided by the payment_window. We can also summarize compliance percentages by:  
+* agency_name  
+* inspector_name  
+* state  
+* region  
+* violation_code
+* out_of_town indicator  
+* out_of_state indicator  
+
+Lastly, lets log transform judgment amount, payment_window, and daily_payment.
+
+Predictors with over 1000 unique levels should be eliminated or have their levels grouped in order to reduce the number  Some predictors such as violator_name, city, mailing_address_str_name, address, and zip_code with nearly 3000 unique levels; however, the following three variables are worth closer examination:
+* agency name  
+* state 
+* violation_code  
+* 
+
+Many of the variables have too many levels; however, five predictors the following ____ appear There are 19 categorical variables with counts ranging from 0 to 171, 814 observations.  
 
 
-train.csv only    
+## Data Selection
+We have `r nrow(py$train)` observations and `r ncol(py$train)` variables in the training set and the validation set is comprised of `r nrow(py$validation)` observations and `r ncol(py$validation)` variables. Our first data selection task will be to isolate the observations and the variables in our training set that will serve as the basis for feature engineering and modeling. 
 
-* payment_amount - Amount paid, if any  
-* payment_date - Date payment was made, if it was received   
-* payment_status - Current payment status as of Feb 1 2017   
-* balance_due - Fines and fees still owed  
-* collection_status - Flag for payments in collections   
-* compliance [target variable for prediction]   
-+ Null = Not responsible  
- 0 = Responsible, non-compliant  
- 1 = Responsible, compliant  
-* compliance_detail - More information on why each ticket was marked compliant or non-compliant  
+As noted above, tickets in which the violator was deemed "not responsible" are included, but will not be considered during evaluation.  We'll remove those observations as well as any observations in which the hearing date didn't follow the ticket date. We will also remove any observations with a zero judgment amount.
+
+
+From a variable selection perspective, we wish to avoid categorical variables with too many levels, with levels that rarely occur, or with one level that almost always occurs. For quantitative variables, we prefer variables without excessive skew.  Of the `r ncol(py$train)` variables from the raw training set, the following variables were selected for further analysis, feature engineering and modeling:   
+* agency_name    
+* city
+* state 
+* zip_code - first three numbers used to derive the region variable   
+* ticket_issued_date   
+* hearing_date  
+* violation_code  
+* judgment_amount  
+* compliance  
+* lat lon - used to derive the x, y, and z coordinates
+
+```{python select_func, code = readLines("../data.py")[156:171], echo = TRUE, eval = TRUE}
+```
+
+```{python select}
+train = select(train)
+```
+
+At this stage, we've selected `r nrow(py$train)` training set observations and `r ncol(py$train)` variables. Let's do some exploratory data analysis to get a sense of the data.
+
+Since the city variable is almost always Detroit, an indicator variable  
+The predictive performance of our algorithm might be advantaged by incorporating compliance data at various categorical levels.  For instance, it might be useful to know which violation codes had the highest and lowest compliance rates. Using this as a template, let's create a few compliance rate variables:  
+
+* agency_compliance_pct - the percentage of compliant violations by agency_name
+* violation_code_compliance_pct - the percentage of compliant violations by violation_code   
+* out_of_town - derived from the city variable  
+* out_of_town_compliance_pct - the percentage of compliant violations among out-of-town vs in-town violators  
+* state  
+* state_compliance_pct - the percentage of compliant violations by state
+* out_of_state - derived from the state variable  
+* out_of_state_compliance_pct - the percentage of compliant violations among out-of-state vs in-state violators  
+* region - first three characters of zip_code variable     
+* region_compliance_pct - the percentage of compliant violations by region
+* log_payment_window - the log number of days between ticket_issued_date and hearing_date    
+* log_judgment_amount - log of the judgment amount     
+* log_daily_payment - log of judgment_amount  / payment_window    
+* compliance 
+* x,y,z coordinates derived from latitude and longitude     
+
+
+
+The above script reads the training, address and the violation latitude/longitude data.  
+
+## Select Data
+The following variables have been **retained** for further analysis, feature engineering, selection and modeling:
+* agency_name    
+* zip_code   
+* city  
+* state  
+* ticket_issued_date     
+* hearing_date     
+* violation_code    
+* judgment_amount   
+* compliance   
+* address   
+* lat   
+* lon   
+
+
+
 
 ***

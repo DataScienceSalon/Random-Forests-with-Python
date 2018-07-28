@@ -1,18 +1,24 @@
 # Introduction
-Random forests, a tree-based method which can be to applied both regression and classification problems, has a number of advantages over some more classical approaches.  Several of the major advantages include:  
+
+The Michigan Data Science Team (MDST) and the Michigan Student Symposium for Interdisciplinary Statistical Sciences (MSSISS) have partnered with the City of Detroit to help solve one of the most pressing problems facing Detroit - blight. Blight violations are issued by the city to individuals who allow their properties to remain in a deteriorated condition. Every year, the city of Detroit issues millions of dollars in fines to residents and every year, many of these fines remain unpaid. Enforcing unpaid blight fines is a costly and tedious process, so the city wants to know: how can we increase blight ticket compliance?
+
+The first step in answering this question is understanding when and why a resident might fail to comply with a blight ticket. 
+
+> As such, our objective is to predict whether a given blight ticket will be paid on time.
+
+Random forests, a tree-based method which can be applied to both regression and classification problems, has a number of advantages over some  classical approaches.  Several of the major advantages include:  
 
 * Trees can be displayed graphically and are typically easier to interpret than most other models, including linear regression.  
 * Some believe that tree-based approaches more closely mirror human decision making than do more classical regression and classification methods.  
 * Decision trees implicitly perform variable screening or feature selection since the top few nodes on which the tree is split are invariably the most important variables within the dataset.    
 * Trees require less data preprocessing than other methods as scaling, normalization, and the creation of dummy variables for qualitative predictors are not necessary.   
 
-This vignette describes an application of random forests in python to a prediction problem in seven parts.   
+This vignette describes an application of random forests in python to our prediction problem in six parts.   
 
-1. Business Case    
-2. Introduction to Random Forests   
-3. Data   
-4. Modeling     
-5. Prediction     
-6. Evaluation   
-7. Conclusion  
+1. Data 
+2. Random Forests   
+3. Modeling     
+4. Prediction     
+5. Evaluation   
+6. Conclusion  
 
