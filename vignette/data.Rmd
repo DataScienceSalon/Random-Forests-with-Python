@@ -1,10 +1,70 @@
-# Data
-This is first of a series of articles on the random forests algorithm and its application to the prediction task in Python. Here, we'll conduct variable selection, data preprocessing, feature engineering, and exploratory data analysis to produce the features that will optimize the predictive power of our machine learning algorithm.
+# Detroit Blight Violation Payment Compliance Data Analysis 
+*This is the first of a four-part series created to analyze and predict blight ticket compliance in the city of detroit. You can find links to the other articles in this series at the bottom of the post.* 
+
+## Background
+Properties in various states of disrepair, collectively referred to as blight, are a costly and wide-spread problem in Detroit, affecting over 20% of its properties. Detroit's declining population, a consequence of auto-industry job loss and increased suburbinization, fell from a peak of 1,800,000 in 1950 to around 700,000 residents in 2017, leading to unprecidented rates of property abandonment. This trend received a boost in 2005 as sub-prime mortgages accounted for 68% of all mortgages in Detroit. Since then, Detroit has encountered over 65,000 mortgage foreclosures, totaling over 1/6 of the total number of parcels in the city. Fifty-six percent of those foreclosures are now blighted or abandoned.
+
+In 2005, the City of Detroit began issuing blight violation citations to encourage homeowners to keep their properties in good conduction and to help finance blight remediation. These so-called blight tickets, ranging from \$20 for trash collection day offenses to \$10,000 for excessive waste dumping, may be contested in a hearing. If the violation is fixed before the hearing, the person would be deemed 'not responsible' for the ticket. However, the compliance rate for blight tickets in which the person is deemed responsible is approximately 7%. Nearly 93% of fines never get paid,leaving over $70,000,000 in unpaid blight tickets since 2005.
+
+## The Question
+In this article, we will explore the following question:
+
+> What factors are most closely associated with the excessively low blight ticket compliance rate. 
+
+## 
+Insofar as the overall objective of the series is to create a prediction algorithm, our deliverables for this section are:    
+1. training set which we will use to fit or random forests prediction algorithm  
+2. validation set which we will use to tune the parameters of the prediction algorithm  
+3. a set of scripts that converts the raw training, validation and test data to processed data  
+4. an exploratory data analysis (EDA) of the variables most highly associated with non-compliant blight violation tickets  
+
+
+
+a training set which we will use to fit our random forests prediction algorithm. Here, we'll conduct variable selection, data preprocessing, feature engineering, and exploratory data analysis to produce the features that will optimize the predictive power of our machine learning algorithm.
 
 ## Overview
 All data for this project have been provided courtesy of the Detroit Open Data Portal. The primary datasets that we will use to train and validate our models are train.csv and test.csv. Each row in these two files corresponds to a single blight ticket, and includes information about when, why, and to whom each ticket was issued. The target variable is compliance, which is True if the ticket was paid early, on time, or within one month of the hearing date, False if the ticket was paid after the hearing date or not at all, and Null if the violator was found not responsible. Compliance, as well as a handful of other variables that will not be available at test-time, are only included in train.csv. In addition, all tickets where the violators were determined to be "not responsible" are not considered during evaluation. They are included in the training set as an additional source of data for visualization, and to enable unsupervised and semi-supervised approaches. However, they are not included in the test set. Two additional datasets are provided for geolocation purposes; addresses.csv and latlons.csv. The former contains the violation addresses mapped to ticket_ids and the latter maps the addresses to latitude and longitude coordinates. 
 
-The code book for the dataset is included in appendix.
+File descriptions:  
+* train.csv - the training set (all tickets issued 2004-2011)   
+* test.csv - the test set (all tickets issued 2012-2016)  
+* addresses.csv & latlons.csv - mapping from ticket id to addresses, and from addresses to lat/lon coordinates. Note: misspelled addresses may be incorrectly geolocated.  
+
+Data fields
+
+train.csv & test.csv
+
+* ticket_id - unique identifier for tickets   
+* agency_name - Agency that issued the ticket  
+* inspector_name - Name of inspector that issued the ticket  
+* violator_name - Name of the person/organization that the ticket was issued to   
+* violation_street_number, violation_street_name, violation_zip_code - Address where the violation occurred  
+* mailing_address_str_number, mailing_address_str_name, city, state, zip_code, non_us_str_code, country - Mailing address of the violator  
+* ticket_issued_date - Date and time the ticket was issued   
+* hearing_date - Date and time the violator's hearing was scheduled   
+* violation_code, violation_description - Type of violation   
+* disposition - Judgment and judgement type   
+* fine_amount - Violation fine amount, excluding fees   
+* admin_fee - $20 fee assigned to responsible judgments   
+* state_fee - $10 fee assigned to responsible judgments   
+* late_fee - 10% fee assigned to responsible judgments   
+* discount_amount - discount applied, if any   
+* clean_up_cost - DPW clean-up or graffiti removal cost   
+* judgment_amount - Sum of all fines and fees   
+* grafitti_status - Flag for graffiti violations   
+
+train.csv only    
+
+* payment_amount - Amount paid, if any  
+* payment_date - Date payment was made, if it was received   
+* payment_status - Current payment status as of Feb 1 2017   
+* balance_due - Fines and fees still owed  
+* collection_status - Flag for payments in collections   
+* compliance [target variable for prediction]   
++ Null = Not responsible  
+ 0 = Responsible, non-compliant  
+ 1 = Responsible, compliant  
+* compliance_detail - More information on why each ticket was marked compliant or non-compliant  
 
 ## Read the Data
 The following script reads the training data into a pandas dataframe and combines the address and latitude and longitude information. We also split the training set into a training set containing observations from 2004 thru 2008, and a validation set containing observations from 2009 thru 2011. The validation set will be used to tune the parameters of our predictive model.
@@ -16,10 +76,11 @@ The following script reads the training data into a pandas dataframe and combine
 train, validation = read()
 ```
 
-## Data Summary
-Our objective at this stage is to obtain a high level sense of the data and to begin shaping our variable inclusion and feature engineering decisions. Essentially, we want to avoid categorical variables that have too many levels, have many levels that rarely occur, or have one level that almost always occurs. Continuous predictors should be characterized by the absences of extreme skewness, a spike at one level and a distribution at others, and one level that almost always occurs. We also want to make use of time-dependent or historical compliance data.
+## Data Selection
+Our objective at this stage is to obtain a high level sense of the data and to identify a set of candidate predictors to be further examined during the exploratory data analysis step. Essentially, we want to avoid categorical variables that have too many levels, have many levels that rarely occur, or have one level that almost always occurs. Using categorical variables with too many levels often results in performance problems since a categorical variable with $k$ levels requires a minimum of $k-1$ parameters in the model. Having levels that rarely occur typically produces levels with too few observations to have any real impact on model fit. Similarly, a categorical variable with a single dominant level will not encode sufficient variability in the data. 
 
-That said, lets summarize and analyze some data. The Pandas describe method, which provides summary statistics for both quantitative and qualitiative predictors, is well suited for this purpose.
+That said, a review of the descriptive statistics for the quantitative and qualitative predictors will allow us to begin to shape variable selection, data preprocessing and feature engineering decisions. 
+
 ```{python summary_func, code = readLines("../data.py")[141:149], echo = TRUE, eval = TRUE}
 ```
 
@@ -32,19 +93,56 @@ qual, quant = sum_stats(train, verbose = False)
 import visual
 visual.print_df(qual)
 ```
-The table in `r kfigr::figr(label = "qual", prefix = TRUE, link = TRUE, type="Table")` summarizes each categorical variable in terms of total count, unique values, the most frequently occuring level and its frequency. Of the 19 qualitative variables, we can eliminate disposition, payment_date, payment_status, and collection_status, as they are not included in the test set. Address, violation_street_name, and mailing_address_str_name are overly grandular and country contains levels that rarely occur. That said, the following variables are worth closer examination:  
-* agency_name   
-* inspector_name   
-* state    
-* violation_code   
+Of the 19 qualitative variables summarized in `r kfigr::figr(label = "qual", prefix = TRUE, link = TRUE, type="Table")`, we can eliminate disposition, payment_date, payment_status, and collection_status, as they are not included in the test set. Violator_name, the street name variables, city, address, and zip code have too many categorical levels.  Of the quantitative predictors summarized in `r kfigr::figr(label = "quant", prefix = TRUE, link = TRUE, type="Table")`, judgment amount and lat/lon are the primary predictors of interest.  Ticket_id, violation_street_number, and mailing_address_str_number incode no predictive information. The other fees, costs, and discounts are included in the judgment amount variable and payment_amount, and balance_due are included for visualization purposes and will not be considered during prediction evaluation. Latitude and longitude will be converted to x, y, and z coordinates.
 
-Let's create two new variables that distinguish out-of-town and out-of-state violators:  
+`r kfigr::figr(label = "quant", prefix = TRUE, link = TRUE, type="Table")`: Quantitative Variable Summary
+```{python quant_stats, echo=FALSE}
+import visual
+visual.print_df(quant)
+```
+
+As such, the following candidate predictors have been chosen for further analysis:    
+* agency_name    
+* inspector_name    
+* state    
+* violation_code    
+* judgment_amount    
+
+## Feature Engineering
+At this stage, we seek to identify additional variables that will prospectively improve the predictive performance of our learning algorithm. Let's begin by reducing the dimensions of the city, state, and zip_code variables:  
+* out_of_town - Logical variable equal to 1 if the city is not equal to 'Detroit', 0 otherwise.
+* out_of_state - Logical variable equal to 1 if the state is not 'Michigan', 0 otherwise.
+* region - First three numbers of the zip_code.
+
+
+
+Next, we'll decode the ticket_issued_date and hearing dates into intervals.
+* payment_window - Difference in days between the ticket_issued_date and the hearing date   
+* daily_payment - The judgment amount divided by the payment_window   
+
+
+
+
+Essentially, we want to avoid categorical variables that have too many levels, have many levels that rarely occur, or have one level that almost always occurs. 
+Continuous predictors should be characterized by the absences of extreme skewness, a spike at one level and a distribution at others, and one level that almost always occurs. On the other hand, we will want to make use of time-dependent or historical compliance data where appropriate.
+
+
+
+## Data Preprocessing
+Now that we have a sense of the available data, let's conduct some data preprocessing.
+
+## Feature Engineering
+Before we dig into to data preprocessing and deeper exploratory data analysis, let's add some features that will, prospectively, optimize predictive performance. 
+
+Let's start with two new variables that distinguish out-of-town and out-of-state violators:  
 * out_of_town - violators with mailing addresses outside of Detroit.  
 * out_of_state - violators with mailing addresses outside of Michigan.   
 
+L
+
 Lastly, recasting the zip_code variable, using the first three digits will provide regional level of granularity. 
 
-Next, we characterize the quantitative variables. The quantitative variables of interest include the judgment_amount, ticket_issued_date, and hearing_date, (not shown) and the binary compliance indicator. The other fees, costs and discounts are expressed in the judgment_amount variable.  Ticket_id and street numbers hold no predictive value.  
+Next, lets characterize the quantitative variables. The quantitative variables of interest include the judgment_amount, ticket_issued_date, and hearing_date, (not shown) and the binary compliance indicator. The other fees, costs and discounts are expressed in the judgment_amount variable.  Ticket_id and street numbers hold no predictive value.  
 
 `r kfigr::figr(label = "quant", prefix = TRUE, link = TRUE, type="Table")`: Quantitative Variable Summary
 ```{python quant_stats, echo=FALSE}
@@ -62,15 +160,6 @@ First, let's create a variable, payment_window, which reflects the number of day
 * out_of_state indicator  
 
 Lastly, lets log transform judgment amount, payment_window, and daily_payment.
-
-Predictors with over 1000 unique levels should be eliminated or have their levels grouped in order to reduce the number  Some predictors such as violator_name, city, mailing_address_str_name, address, and zip_code with nearly 3000 unique levels; however, the following three variables are worth closer examination:
-* agency name  
-* state 
-* violation_code  
-* 
-
-Many of the variables have too many levels; however, five predictors the following ____ appear There are 19 categorical variables with counts ranging from 0 to 171, 814 observations.  
-
 
 ## Data Selection
 We have `r nrow(py$train)` observations and `r ncol(py$train)` variables in the training set and the validation set is comprised of `r nrow(py$validation)` observations and `r ncol(py$validation)` variables. Our first data selection task will be to isolate the observations and the variables in our training set that will serve as the basis for feature engineering and modeling. 
