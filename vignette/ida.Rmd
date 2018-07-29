@@ -1,0 +1,136 @@
+# Detroit Blight Ticket Data Initial Data Analysis 
+*This is the first of a six-part series created to analyze and predict blight ticket compliance in the city of Detroit. You can find links to the other articles in this series at the bottom of the post.* 
+
+The primary concern of the initial data analysis is data quality and engages questions such as:  
+1. How should missing and faulty data be treated?    
+2. What initial data transformations would be appropriate?  
+3. What is the distribution and frequency characteristics of categorical variables?    
+4. How should the data be prepared for exploratory data analysis and modeling?  
+
+This article will examine the Detroit Blight Ticket Data in some detail and prescribe treatments and corrective actions which will be implemented in the following data preparation phase.
+
+## Blight Ticket Data
+The data for this project was made available courtesy of the publicly accessible Detroit Open Data Portal. Available blight ticket data has been split into a training set containing observations from 2005-2011 and a test set including blight tickets written between 2012 and 2016. Each row in these two files corresponds to a single blight ticket, and includes information about when, why, and to whom each ticket was issued. The target variable is compliance, which is True if the ticket was paid early, on time, or within one month of the hearing date, False if the ticket was paid after the hearing date or not at all, and Null if the violator was found not responsible. Compliance, as well as a handful of other variables that will not be available at test-time, are only included in train.csv. In addition, all tickets where the violators were determined to be "not responsible" are not considered during evaluation. They are included in the training set as an additional source of data for visualization, and to enable unsupervised and semi-supervised approaches. 
+
+Two additional files, addresses.csv and latlons.csv have been provided for geolocation purposes. The former contains the violation addresses mapped to ticket_ids and the latter maps the addresses to latitude and longitude coordinates. 
+
+## Blight Ticket Data Overview
+The blight dataframe summarized in `r kfigr::figr(label = "format", prefix = TRUE, link = TRUE, type="Table")` contains some 250,306 blight ticket observations and 37 variables.
+
+```{python ida_read, code = readLines("../ida.py")[5:22]}
+```
+```{python ida_info}
+print(df.info())
+```
+`r kfigr::figr(label = "format", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket Data Overview
+
+## Data Selection
+As a first step in our analysis, let's identify the observations and variables relevant to the analysis, modeling and prediction phases and eliminate the superfluous, redundant, and tangential data. Since our focus is blight ticket compliance, those observations with a "not responsible" determination can be removed. As indicated above, the variables containing payment and balance information are only included in the training set and can therefore be discarded. Redundant variables such as those containing fees, costs and discounts can also be eliminated from further analysis. The dataframe described in `r kfigr::figr(label = "vars", prefix = TRUE, link = TRUE, type="Figure")` contains approximately 160,000 observations and 19 variables.  We can now proceed with the univariate data analysis. 
+```{python ida_select, code = readLines("../ida.py")[27:34]}
+```
+```{python ida_vars, echo=FALSE}
+print(df.info())
+```
+`r kfigr::figr(label = "vars", prefix = TRUE, link = TRUE, type="Figure")`: Selected Blight Ticket Data Variables
+
+## Univariate Analysis
+Again, the univariate data analysis is primarily concerned with characterizing the quality of the data. The following descriptive statistics and frequency analyses will inform our downstream data processing, feature selection, feature engineering and modeling decisions. 
+
+### Compliance  
+```{python compliance, code = readLines("../ida.py")[39:49]}
+```
+
+Let's start with the target variable, Compliance. Por qué no? Compliance has `r sum(py$compliance$Counts)` non-null obervations which are either zero indicating compliance, or one indicating failure to comply. As shown in `r kfigr::figr(label = "compliance_tbl", prefix = TRUE, link = TRUE, type="Table")` and graphically depicted in `r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`, the vast majority of tickets (`r round(py$compliance$Percent[2], 1)`%) were non-compliant.  
+
+```{python compliance_plot, code = readLines("../ida.py")[50:57]}
+```
+`r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`: Compliance Analysis 
+
+`r kfigr::figr(label = "compliance_tbl", prefix = TRUE, link = TRUE, type="Table")`: Compliance Counts and Percentages
+```{r compliance_tbl}
+knitr::kable(py$compliance, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+The compliance rate of `r round(py$compliance$Percent[1],1)`% is indeed abysmal; however, no data quality issues appear extant.
+
+* * *  
+
+### Agency   
+```{python agency, code = readLines("../ida.py")[62:68]}
+```
+There are `r sum(py$agency$Count)` blight tickets originating from one of the five enforcement agencies, indicating no missing data for this variable. 
+```{python agency_plot, code = readLines("../ida.py")[69:76]}
+```
+`r kfigr::figr(label = "agency_plot", prefix = TRUE, link = TRUE, type="Figure")`: Agency Frequency Analysis  
+
+`r kfigr::figr(label = "agency_tbl", prefix = TRUE, link = TRUE, type="Table")`: Agency Counts and Percentages
+```{r agency_tbl}
+knitr::kable(py$agency, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+As shown in `r kfigr::figr(label = "agency", prefix = TRUE, link = TRUE, type="Figure")` and `r kfigr::figr(label = "agency_tbl", prefix = TRUE, link = TRUE, type="Table")`, Neighborhood City Halls is responsible for just a single blight ticket. To ensure an adequate number of observations per categorical level, we'll combine the Neighhborhood City Halls and Detroit Police Department levels into a single categorical level.  
+
+* * *  
+
+### Inspector
+```{python inspector, code = readLines("../ida.py")[81:87]}
+```
+As shown in `r kfigr::figr(label = "inspector_count_tbl", prefix = TRUE, link = TRUE, type="Table")`, there are `r py$inspector_count$unique[1]` inspectors among the `r py$inspector_count$count[1]` blight tickets, indicating no null values for this variable.   
+
+The frequency distribution of blight tickets per inspector (`r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`)is significantly right skewed, slightly multimodal and centers on a mean and median of  approximately `r round(py$inspector_spectrum$mean, 0)` and `r py$inspector_spectrum[1,6]` tickets, respectively. The honors for highest number of tickets issued goes to `r py$inspector_count$top` with a total of `r py$inspector_spectrum$max` tickets. 
+```{python inspector_plot, code = readLines("../ida.py")[88:94]}
+```
+`r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`: Inspector Productivity Analysis  
+
+`r kfigr::figr(label = "inspector_count_tbl", prefix = TRUE, link = TRUE, type="Table")`: Inspector Counts
+```{r inspector_count_tbl}
+knitr::kable(py$inspector_count, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+`r kfigr::figr(label = "inspector_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Inspector Blight Ticket Frequency Distribution
+```{r inspector_spectrum}
+knitr::kable(py$inspector_spectrum, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+No data quality issues are revealed at this stage; however, we may consider creating two new quantitative variables: one which captures 'inspector productivity' in terms of the number of past tickets written and another variable which encodes 'inspector effectiveness' which is the percentage of past blight tickets written that were compliant. To reduce skewness, we may experiment with log transforming the productivity variable.
+
+* * *  
+
+### Violator
+```{python violator, code = readLines("../ida.py")[100:107]}
+```
+As shown in `r kfigr::figr(label = "violator_count_tbl", prefix = TRUE, link = TRUE, type="Table")`, there are `r py$violator_count$unique[1]` violators among the `r py$violator_count$count[1]` blight tickets, indicating the presence of `r py$violator_missing` null values.
+
+The frequency distribution of blight tickets per violator (`r kfigr::figr(label = "violator_plot", prefix = TRUE, link = TRUE, type="Figure")`)is significantly right skewed and centers on a mean and median of  approximately `r round(py$violator_spectrum$mean, 0)` and `r py$violator_spectrum[1,6]` tickets, respectively. The honors for highest number of tickets received goes to `r py$violator_count$top` with a total of `r py$violator_spectrum$max` tickets. 
+```{python violator_plot, code = readLines("../ida.py")[108:113]}
+```
+`r kfigr::figr(label = "violator_plot", prefix = TRUE, link = TRUE, type="Figure")`: Violator Productivity Analysis  
+
+`r kfigr::figr(label = "violator_count_tbl", prefix = TRUE, link = TRUE, type="Table")`: Violator Counts
+```{r violator_count_tbl}
+knitr::kable(py$violator_count, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+`r kfigr::figr(label = "violator_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Violator Blight Ticket Frequency Distribution
+```{r violator_spectrum}
+knitr::kable(py$violator_spectrum, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+Since the violator name is manually entered on each ticket by the inspector, it is subject to omission and/or spelling variation which could distort any analysis based upon this variable. 
+The violator name variable is subject Several data quality issues have been revealed.  First, the violator names are manually entered for each ticket by the inspector; as such, violator names are subject to spelling variations.  Second, there are `r py$violator_missing` missing values. These observations 
+No data quality issues are revealed at this stage; however, we may consider creating two new quantitative variables: one which captures 'inspector productivity' in terms of the number of past tickets written and another variable which encodes 'inspector effectiveness' which is the percentage of past blight tickets written that were compliant. To reduce skewness, we may experiment with log transforming the productivity variable.
+
+* * *  
+
+
+
+### Summary
+1. Combine the agency variable categorical levels for Neighborhood City Halls and Detroit Police Department into a single categorical level.
+2. Create an 'inspector productivity' variable which captures the number of past tickets written by the inspector of a blight ticket. Consider log transforming this variable to reduce the amount of skew.
+3. Create an 'inspector effectiveness' variable which is the percentage of past tickets written that were compliant.

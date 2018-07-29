@@ -15,7 +15,7 @@ editor_options:
 ```{r knitr_init, echo=FALSE, cache=FALSE, warning=FALSE, message=FALSE}
 options(knitr.table.format = "html")
 options(max.print=100, scipen=999, width = 800)
-knitr::opts_chunk$set(echo=TRUE,
+knitr::opts_chunk$set(echo=FALSE,
 	             cache=FALSE,
                prompt=FALSE,
 	             eval = TRUE,
@@ -32,7 +32,7 @@ knitr::knit_hooks$set(inline = function(x) {
 })
 ```
 
-```{r r_libraries}
+```{r r_libraries, echo=FALSE}
 library(dplyr)
 library(knitr)
 library(kableExtra)
@@ -40,49 +40,18 @@ library(kfigr)
 library(reticulate)
 ```
 
-```{python path}
+```{python path, echo=FALSE}
 import os
 sys.path.append("..")
 ````
 
 
-```{python intro, child = 'intro.rmd'}
+```{r intro, child = 'intro.rmd'}
 ```
 
 ***
 
-```{python rf, child = 'data.rmd'}
-```
-
-***
-
-```{python rf, child = 'rf.rmd'}
-```
-
-***
-
-```{python model, child = 'model.rmd'}
-```
-
-***
-
-```{python prediction, child = 'prediction.rmd'}
-```
-
-***
-
-```{python evaluation, child = 'eval.rmd'}
-```
-
-***
-
-```{python conclusion, child = 'conclusion.rmd'}
-```
-
-***
-
-
-```{python appendix, child = 'appendix.rmd'}
+```{r ida, child = 'ida.rmd'}
 ```
 
 ***

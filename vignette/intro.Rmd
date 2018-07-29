@@ -1,24 +1,25 @@
 # Introduction
+Properties in various states of disrepair, collectively referred to as blight, are a costly and wide-spread problem in Detroit, affecting over 20% of its properties. Detroit's declining population, a consequence of auto-industry job loss and increased suburbinization, fell from a peak of 1,800,000 in 1950 to around 700,000 residents in 2017, leading to unprecidented rates of property abandonment. This trend received a boost in 2005 as sub-prime mortgages accounted for 68% of all mortgages in Detroit. Since then, Detroit has encountered over 65,000 mortgage foreclosures, totaling over 1/6 of the total number of parcels in the city. Fifty-six percent of those foreclosures are now blighted or abandoned.
 
-The Michigan Data Science Team (MDST) and the Michigan Student Symposium for Interdisciplinary Statistical Sciences (MSSISS) have partnered with the City of Detroit to help solve one of the most pressing problems facing Detroit - blight. Blight violations are issued by the city to individuals who allow their properties to remain in a deteriorated condition. Every year, the city of Detroit issues millions of dollars in fines to residents and every year, many of these fines remain unpaid. Enforcing unpaid blight fines is a costly and tedious process, so the city wants to know: how can we increase blight ticket compliance?
+In 2005, the City of Detroit began issuing blight violation citations to encourage homeowners to keep their properties in good conduction and to help finance blight remediation. These so-called blight tickets, ranging from \$20 for trash collection day offenses to \$10,000 for excessive waste dumping, may be contested in a hearing. If the violation is fixed before the hearing, the person would be deemed 'not responsible' for the ticket.
 
-The first step in answering this question is understanding when and why a resident might fail to comply with a blight ticket. 
+Every year, the city of Detroit issues millions of dollars in fines to residents and every year, many of these fines remain unpaid. In fact, the compliance rate for blight tickets in which the person is deemed responsible is approximately 7%. Nearly 93% of fines never get paid,leaving over $70,000,000 in unpaid blight tickets since 2005.  
 
-> As such, our objective is to predict whether a given blight ticket will be paid on time.
+## Problem Definition
+Enforcing unpaid blight fines is a costly and tedious process, as such the city seeks to understand the factors associated with low blight ticket compliance.
 
-Random forests, a tree-based method which can be applied to both regression and classification problems, has a number of advantages over some  classical approaches.  Several of the major advantages include:  
+## Project Overview  
+The two fold objective of this project is to:   
+1. analyze and interpret the factors associated with low blight ticket compliance, and    
+2. build a random-forests based model to predict blight ticket compliance   
 
-* Trees can be displayed graphically and are typically easier to interpret than most other models, including linear regression.  
-* Some believe that tree-based approaches more closely mirror human decision making than do more classical regression and classification methods.  
-* Decision trees implicitly perform variable screening or feature selection since the top few nodes on which the tree is split are invariably the most important variables within the dataset.    
-* Trees require less data preprocessing than other methods as scaling, normalization, and the creation of dummy variables for qualitative predictors are not necessary.   
+The project will unfold in a six-part series including:  
+* Initial Data Analysis  
+* Data Preparation & Feature Engineering  
+* Exploratory Data Analysis  
+* Introduction to Random Forests   
+* Random Forests Model Building    
+* Model Evaluation and Conclusion    
 
-This vignette describes an application of random forests in python to our prediction problem in six parts.   
-
-1. Data 
-2. Random Forests   
-3. Modeling     
-4. Prediction     
-5. Evaluation   
-6. Conclusion  
+The project, source code and data are available at https://github.com/DataScienceSalon/Random-Forests-with-Python
 

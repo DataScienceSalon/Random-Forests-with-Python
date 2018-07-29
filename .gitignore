@@ -2,3 +2,5 @@
 .Rhistory
 .RData
 .Ruserdata
+vignette/main_cache/
+vignette/main_files/
