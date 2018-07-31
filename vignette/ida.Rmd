@@ -124,7 +124,7 @@ No data quality issues appear extant; however, we may want to consider adding tw
 ```{python violation, code = readLines("../ida.py")[104:113]}
 ```
 
-`r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")` confirms all `r py$violation_summary$observations` observations are written against one of `r py$violation_summary$unique` violation codes. There are no missing values.
+`r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")` confirms that each of the `r py$violation_summary$observations` observations is written against one of `r py$violation_summary$unique` violation codes. There are no missing values.
 
 `r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Violation Code Summary
 ```{r violation_summary}
@@ -283,12 +283,123 @@ knitr::kable(py$state_top10, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-Aside from the missing values, there are no other data quality issues with this variable. 
+
+* * * 
+### Zip Code
+```{python zip_code, code = readLines("../ida.py")[200:209]}
+```
+
+The zip code variable pertains to the mailing address of the violator, and not the violation address. The training set, as indicated in `r kfigr::figr(label = "zip_code_summary", prefix = TRUE, link = TRUE, type="Table")`, has `r py$zip_code_summary$missing` missing value for zip_code. 
+
+`r kfigr::figr(label = "zip_code_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Zip Code Summary
+```{r zip_code_summary}
+knitr::kable(py$zip_code_summary, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+```{python zip_code_plot, code = readLines("../ida.py")[211:213]}
+```
+`r kfigr::figr(label = "zip_code_plot", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket by Zip Code Frequency Histogram
+
+`r kfigr::figr(label = "zip_code_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Blight Ticket by Zip Code Frequency Analysis
+```{r zip_code_spectrum}
+knitr::kable(py$zip_code_spectrum, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+As depicted in `r kfigr::figr(label = "zip_code_plot", prefix = TRUE, link = TRUE, type="Figure")` and in `r kfigr::figr(label = "zip_code_spectrum", prefix = TRUE, link = TRUE, type="Table")`, the median number of tickets per zip code is `r py$zip_code_spectrum[1,6]`; however, the mean is `r round(py$zip_code_spectrum[1,2],0)` tickets per zip_code. Another right-skewed distribution with some zip codes having up to `r py$zip_code_spectrum$max` violations as revealed in `r kfigr::figr(label = "zip_code_top10", prefix = TRUE, link = TRUE, type="Table")`.
+
+`r kfigr::figr(label = "zip_code_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Zip Codes by Blight Tickets Written
+```{r zip_code_top10}
+knitr::kable(py$zip_code_top10, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+Aside from the single missing value, there are no other data quality issues with this variable. That said, the zip code variable may be too granular to be useful as a predictor since it would require `r py$zip_code_summary$unique` categorical levels.  We may consider creating a new variable from the first three numbers of the zip code which pertains to regional areas.
+
+* * * 
+### Country
+```{python country, code = readLines("../ida.py")[219:225]}
+```
+Blight violators hale from one of 5 countries; however nearly 100% are US based.
+
+`r kfigr::figr(label = "country_tbl", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Country
+```{r country_tbl}
+knitr::kable(py$country, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+Given this inbalance, country would not be a useful categorical variable for analysis and prediction.
+
+* * * 
+### Latitude / Longitude
+```{python lat_lon, code = readLines("../ida.py")[231:234]}
+```
+
+The following rather course summary of latitude and longtitude shows no glaring data quality problems aside from the two missing variables.
+
+`r kfigr::figr(label = "ida_lat_lon", prefix = TRUE, link = TRUE, type="Table")`: Summary of Latitude and Longitude Variables
+```{r ida_lat_lon}
+knitr::kable(py$lat_lon, digits = 2) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+This data will be useful for a geolocation based visualization of the blight ticket data.
+
+* * * 
+### Dates
+```{python dates, code = readLines("../ida.py")[241:252]}
+```
+Ticket issued dates appear to be in satisfactory condition. There are no missing dates and the date ranges are those that were expected.  However, two issues arise upon examination of the hearing dates. First, there are over 200 missing hearing dates and there are `r nrow(py$errors)` observations where the hearing date did not follow the date in which the ticket was issued. A sample of the potential errors are listed in `r kfigr::figr(label = "date_errors", prefix = TRUE, link = TRUE, type="Table")`.
+
+`r kfigr::figr(label = "dates_summary", prefix = TRUE, link = TRUE, type="Table")`: Summary of Ticket Issued and Hearing Dates
+```{r dates_summary}
+knitr::kable(py$dates_summary, digits = 2) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+`r kfigr::figr(label = "date_errors", prefix = TRUE, link = TRUE, type="Table")`: Sampling of Date Errors
+```{r date_errors}
+knitr::kable(py$sample_errors, digits = 2) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+For both the missing and presumably incorrect hearing dates, the following imputation strategy could be adopted. Determine the mean interval between ticket issued date and hearing date for each violation code.  Add this mean interval for the violation code to the ticket issued date to arrive at a new hearing date for observations for which the hearing date is missing or presumed to be incorrect.
+
+* * * 
+### Judgment Amount
+Alas, we come to the last variable for this univariate exploration. Judgment amounts covered a significant range from \$0 upwards to `r round(py$ja_distribution$max, 0)`\$. An inspection of the data revealed `r nrow(py$zero_ja)` observations with zero judgment amounts. All of these blight tickets were judged 'compliant by no fine'. 
+
+```{python ja, code = readLines("../ida.py")[258:261]}
+```
+
+
+```{python ja_plot, code = readLines("../ida.py")[263:265]}
+```
+`r kfigr::figr(label = "ja_plot", prefix = TRUE, link = TRUE, type="Figure")`: Distribution of Judgment Amounts
+
+
+`r kfigr::figr(label = "ja_summary", prefix = TRUE, link = TRUE, type="Table")`: Summary of Judgment Amounts
+```{r ja_summary}
+knitr::kable(py$ja_summary, digits = 2) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+`r kfigr::figr(label = "ja_distribution", prefix = TRUE, link = TRUE, type="Table")`: Distribution of Judgment Amounts
+```{r ja_distribution}
+knitr::kable(py$ja_distribution, digits = 2) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+As indicated in `r kfigr::figr(label = "ja_summary", prefix = TRUE, link = TRUE, type="Table")` and `r kfigr::figr(label = "ja_distribution", prefix = TRUE, link = TRUE, type="Table")`, both the mean and the mode judgment amount is `r round(ja_summary$top, 0)`\$. There were no obvious date quality issues with this variable.
+
+* * * 
 
 
 ### Summary
 1. Combine the agency variable categorical levels for Neighborhood City Halls and Detroit Police Department into a single categorical level.
 2. Impute missing violator names with the street number and address of the violation.
+3. Impute missing or incorrect hearing dates using the mean interval date for the violation code.
 
 New Features   
 As we noted above, there are two types of features to introduce: productivity and compliance levels.  The productivity level variable would be the number of past tickets written and the compliance level would be the percentage of past tickets written that were compliant.  We would create these two variables for each of the following variables:   
@@ -299,3 +410,5 @@ As we noted above, there are two types of features to introduce: productivity an
 * Violation Street
 
 In addition, we may want to categorize the above by compliance levels. For instance, we may want to have an inspector productivity level variable with several levels based upon the percentage of compliant tickets written.
+
+Create a region variable from the first three numbers of the zip code.

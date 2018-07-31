@@ -3,6 +3,7 @@
 # ============================================================================ #
 #                                  LIBRARIES                                   #
 # ============================================================================ #
+import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -38,7 +39,7 @@ df = pd.merge(df, latlong, on = ['address'])
 # ============================================================================ #
 df = df[pd.notnull(df['compliance'])] 
 Xy = ['agency_name', 'inspector_name', 'violator_name', 'violation_street_number',
-'violation_street_name', 'city', 'state', 'zip_code', 'non_us_str_code', 'country', 
+'violation_street_name', 'city', 'state', 'zip_code', 'country', 
 'lat', 'lon', 'ticket_issued_date', 'hearing_date', 'violation_code', 
 'judgment_amount', 'compliance'] 
 df = df[Xy]
@@ -201,11 +202,14 @@ zip_code_summary = analysis.describe(df, df['zip_code'])
 
 # Obtain blight tickets by zip_code frequency distribution 
 zip_code = df.groupby(['zip_code'])['violation_code'].count().reset_index()
-zip_code.columns = ['Zip_code', 'Count']
+zip_code.columns = ['Zip_Code', 'Count']
 zip_code_spectrum = zip_code.describe().T
 
+# Summarize top 10 violation codes
+zip_code_top10 = zip_code.nlargest(10, 'Count').set_index('Zip_Code')
+
 # Render blight ticket frequency distribution histogram
-visual.freq_dist(zip_code.Count, "Zip_code Blight Ticket Frequency Analysis")
+visual.freq_dist(zip_code.Count, "Blight Ticket by Zip Code Frequency Analysis")
 plt.show()
 
 #%%
@@ -225,16 +229,22 @@ country['Percent'] = country['Count'] * 100 / country['Count'].sum()
 # Latitude / Longitude                                                         #
 # ============================================================================ #
 # Summarize counts, missing values, unique values and most frequent value
-lat_summary = analysis.describe(df, df['lat'].astype(str))
-lon_summary = analysis.describe(df, df['lon'].astype(str))
+lat_summary = df['lat'].to_frame().describe().T
+lon_summary = df['lon'].to_frame().describe().T
+lat_lon = pd.concat([lat_summary, lon_summary])
 
 #%%
 # ============================================================================ #
 # Ticket and Hearing Dates                                                     #
 # ============================================================================ #
+# Convert dates to datetime objects
+tid =  pd.to_datetime(df['ticket_issued_date'])
+hd =  pd.to_datetime(df['hearing_date'])
+
 # Summarize counts, missing values, unique values and most frequent value
-tid_summary = analysis.describe(df, df['ticket_issued_date'].astype(str))
-hd_summary = analysis.describe(df, df['hearing_date'].astype(str))
+tid_summary = analysis.describe(df, tid)
+hd_summary = analysis.describe(df, hd)
+dates_summary = pd.concat([tid_summary, hd_summary])
 
 # Determine hearing dates that are not after the ticket date
 errors = df[df['hearing_date'] <= df['ticket_issued_date']][['ticket_issued_date', 'hearing_date']]
@@ -248,4 +258,8 @@ sample_errors = errors.sample(10)
 ja_summary = analysis.describe(df, df['judgment_amount'].astype(str))
 ja_distribution = df['judgment_amount'].to_frame().describe().T
 zero_ja = df[df['judgment_amount'] == 0]
+
+# Render judgment amount histogram
+visual.histogram(df['judgment_amount'], "Distribution of Judgment Amount")
+plt.show()
 

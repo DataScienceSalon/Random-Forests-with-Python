@@ -21,3 +21,12 @@ def bar_plot(df, xval, yval, title):
         color='steelblue').set_title(title)    
     return(bp)
 
+def histogram(values, title):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    sns.set(style="whitegrid", font_scale=2)
+    fig, ax = plt.subplots()
+    hist = sns.distplot(values,bins=40, ax=ax, kde=False,
+    color='steelblue').set_title(title)    
+    return(hist)
+
