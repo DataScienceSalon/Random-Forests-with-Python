@@ -45,7 +45,6 @@ import os
 sys.path.append("..")
 ````
 
-
 ```{r intro, child = 'intro.rmd'}
 ```
 

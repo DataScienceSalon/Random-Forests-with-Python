@@ -16,7 +16,7 @@ Two additional files, addresses.csv and latlons.csv have been provided for geolo
 
 * * *  
 
-```{python libraries, code = readLines("../ida.py")[7:15]}
+```{python libraries, code = readLines("../ida.py")[6:15]}
 ```
 ## Blight Ticket Data Overview
 ```{python ida_read, code = readLines("../ida.py")[20:33]}
@@ -36,7 +36,7 @@ Not every variable will be relevant to, or useful for, analysis and modeling. Le
 ## Data Selection
 Here, we will identify the relevant observations and variables and eliminate the superfluous, redundant, and tangential data. Since our focus is blight ticket compliance, those observations with a "not responsible" determination can be removed. As indicated above, the variables containing payment and balance information are only included in the training set and can therefore be discarded. Redundant variables such as those containing fees, costs and discounts can also be eliminated from further analysis. 
 
-```{python ida_select, code = readLines("../ida.py")[38:45]}
+```{python ida_select, code = readLines("../ida.py")[39:46]}
 ```
 
 The trimmed dataframe described in `r kfigr::figr(label = "ida_vars", prefix = TRUE, link = TRUE, type="Figure")` now contains `r nrow(py$df)`  observations and `r ncol(py$df)` variables.  We can now proceed with the univariate data analysis. 
@@ -52,101 +52,250 @@ print(df.info())
 Again, the univariate data analysis is primarily concerned with characterizing the quality of the data. The following descriptive statistics and frequency analyses will inform our downstream data processing, feature selection, feature engineering and modeling decisions. 
 
 ### Compliance  
-```{python compliance, code = readLines("../ida.py")[50:60]}
+```{python compliance, code = readLines("../ida.py")[53:59]}
 ```
+Let's start with the target variable, Compliance. Por qué no? 
 
-Let's start with the target variable, Compliance. Por qué no? Compliance has `r sum(py$compliance$Counts)` non-null obervations which are either zero indicating compliance, or one indicating failure to comply. As shown in `r kfigr::figr(label = "compliance_tbl", prefix = TRUE, link = TRUE, type="Table")` and graphically depicted in `r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`, the vast majority of tickets (`r round(py$compliance$Percent[2], 1)`%) were non-compliant.  
+As graphically depicted in `r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`, the vast majority of blight tickets (`r round(py$compliance$Percent[2], 1)`%) were 'Non-Compliant' and there are no missing values.
 
-```{python compliance_plot, code = readLines("../ida.py")[62:63]}
+```{python compliance_plot, code = readLines("../ida.py")[61:63]}
 ```
-`r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`: Compliance Analysis 
+`r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`: Compliance Summary
 
-`r kfigr::figr(label = "compliance_tbl", prefix = TRUE, link = TRUE, type="Table")`: Compliance Counts and Percentages
+`r kfigr::figr(label = "compliance_tbl", prefix = TRUE, link = TRUE, type="Table")`: Compliance Distribution
 ```{r compliance_tbl}
 knitr::kable(py$compliance, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-The compliance rate of `r round(py$compliance$Percent[1],1)`% is indeed abysmal; however, no data quality issues appear extant.
-
-* * *  
-
-### Agency   
-```{python agency, code = readLines("../ida.py")[69:75]}
+* * * 
+### Agency
+```{python agency, code = readLines("../ida.py")[70:73]}
 ```
-There are `r sum(py$agency$Count)` blight tickets originating from one of the five enforcement agencies, indicating no missing data for this variable. 
-```{python agency_plot, code = readLines("../ida.py")[77:78]}
-```
-`r kfigr::figr(label = "agency_plot", prefix = TRUE, link = TRUE, type="Figure")`: Agency Frequency Analysis  
+`r kfigr::figr(label = "agency_plot", prefix = TRUE, link = TRUE, type="Figure")` shows `r sum(py$agency$Count)` blight tickets originating from one of the five enforcement agencies and there are no missing values for this variable.
 
-`r kfigr::figr(label = "agency_tbl", prefix = TRUE, link = TRUE, type="Table")`: Agency Counts and Percentages
+```{python agency_plot, code = readLines("../ida.py")[75:78]}
+```
+`r kfigr::figr(label = "agency_plot", prefix = TRUE, link = TRUE, type="Figure")`: Blight Tickets by Agency
+
+`r kfigr::figr(label = "agency_tbl", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Agency 
 ```{r agency_tbl}
 knitr::kable(py$agency, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-As shown in `r kfigr::figr(label = "agency", prefix = TRUE, link = TRUE, type="Figure")` and `r kfigr::figr(label = "agency_tbl", prefix = TRUE, link = TRUE, type="Table")`, Neighborhood City Halls is responsible for just a single blight ticket. To ensure an adequate number of observations per categorical level, we'll combine the Neighhborhood City Halls and Detroit Police Department levels into a single categorical level.  
+As shown in `r kfigr::figr(label = "agency_tbl", prefix = TRUE, link = TRUE, type="Table")`, Neighborhood City Halls are responsible for just a single blight ticket. To ensure an adequate number of observations per categorical level, we'll combine the Neighhborhood City Halls and Detroit Police Department levels into a single categorical level.
 
-* * *  
-
-### Inspector
-```{python inspector, code = readLines("../ida.py")[85:91]}
+* * *
+### Inpector
+```{python inspector, code = readLines("../ida.py")[85:94]}
 ```
-As shown in `r kfigr::figr(label = "inspector_count_tbl", prefix = TRUE, link = TRUE, type="Table")`, there are `r py$inspector_count$unique[1]` inspectors among the `r py$inspector_count$count[1]` blight tickets, indicating no null values for this variable.   
+`r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")` shows `r sum(py$inspector$Count)` blight tickets originating from one of the `r py$inspector_summary$unique` inspectors and there are no missing values for this variable.
 
-The frequency distribution of blight tickets per inspector (`r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`)is significantly right skewed, slightly multimodal and centers on a mean and median of  approximately `r round(py$inspector_spectrum$mean, 0)` and `r py$inspector_spectrum[1,6]` tickets, respectively. The honors for highest number of tickets issued goes to `r py$inspector_count$top` with a total of `r py$inspector_spectrum$max` tickets. 
-```{python inspector_plot, code = readLines("../ida.py")[93:94]}
-```
-`r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`: Inspector Productivity Analysis  
-
-`r kfigr::figr(label = "inspector_count_tbl", prefix = TRUE, link = TRUE, type="Table")`: Inspector Counts
-```{r inspector_count_tbl}
-knitr::kable(py$inspector_count, digits = 1) %>%
+`r kfigr::figr(label = "inspector_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Inspector Summary
+```{r inspector_summary}
+knitr::kable(py$inspector_summary, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-`r kfigr::figr(label = "inspector_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Inspector Blight Ticket Frequency Distribution
+```{python inspector_plot, code = readLines("../ida.py")[95:98]}
+```
+`r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`: Inspector Blight Ticket Frequency Histogram
+
+`r kfigr::figr(label = "inspector_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Inspector Frequency Analysis
 ```{r inspector_spectrum}
 knitr::kable(py$inspector_spectrum, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-No data quality issues are revealed at this stage; however, we may consider creating two new quantitative variables: one which captures 'inspector productivity' in terms of the number of past tickets written and another variable which encodes 'inspector effectiveness' which is the percentage of past blight tickets written that were compliant. To reduce skewness, we may experiment with log transforming the productivity variable.
+As indicated in `r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`, the distribution of blight ticket counts among the inspectors is significantly right-skewed. The median number of tickets is `r py$inspector_spectrum[1,6]`; whereas the mean is approximately `r round(py$inspector_spectrum[1,2], 0)` tickets, a differencing owing to outlier inspectors with upwards of  `r round(py$inspector_spectrum[1,8], 0)` blight tickets written as shown in `r kfigr::figr(label = "inspector_top10", prefix = TRUE, link = TRUE, type="Table")`.
 
-* * *  
-
-### Violator
-```{python violator, code = readLines("../ida.py")[100:107]}
-```
-As shown in `r kfigr::figr(label = "violator_count_tbl", prefix = TRUE, link = TRUE, type="Table")`, there are `r py$violator_count$unique[1]` violators among the `r py$violator_count$count[1]` blight tickets, indicating the presence of `r py$violator_missing` null values.
-
-The frequency distribution of blight tickets per violator (`r kfigr::figr(label = "violator_plot", prefix = TRUE, link = TRUE, type="Figure")`)is significantly right skewed and centers on a mean and median of  approximately `r round(py$violator_spectrum$mean, 0)` and `r py$violator_spectrum[1,6]` tickets, respectively. The honors for highest number of tickets received goes to `r py$violator_count$top` with a total of `r py$violator_spectrum$max` tickets. 
-```{python violator_plot, code = readLines("../ida.py")[108:113]}
-```
-`r kfigr::figr(label = "violator_plot", prefix = TRUE, link = TRUE, type="Figure")`: Violator Productivity Analysis  
-
-`r kfigr::figr(label = "violator_count_tbl", prefix = TRUE, link = TRUE, type="Table")`: Violator Counts
-```{r violator_count_tbl}
-knitr::kable(py$violator_count, digits = 1) %>%
+`r kfigr::figr(label = "inspector_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Inspectors by Blight Tickets Written
+```{r inspector_top10}
+knitr::kable(as.data.frame(py$inspector_top10, row.names = NULL), digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-`r kfigr::figr(label = "violator_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Violator Blight Ticket Frequency Distribution
+
+No data quality issues appear extant; however, we may want to consider adding two new variables to capture the quantity and quality of tickets issued by an inspector. We could measure 'inspector productivity' as the number of prior tickets written and 'inspector effectivness' as the percentage of prior tickets written that were compliant. Let's put a pin in it for now and revisit this later at feature engineering time.
+
+* * * 
+### Violation Code
+```{python violation, code = readLines("../ida.py")[104:113]}
+```
+
+`r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")` confirms all `r py$violation_summary$observations` observations are written against one of `r py$violation_summary$unique` violation codes. There are no missing values.
+
+`r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Violation Code Summary
+```{r violation_summary}
+knitr::kable(py$violation_summary, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+```{python violation_plot, code = readLines("../ida.py")[115:117]}
+```
+`r kfigr::figr(label = "violation_plot", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket by Violation Code Frequency Histogram
+
+`r kfigr::figr(label = "violation_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Blight Ticket by Violation Code Frequency Analysis
+```{r violation_spectrum}
+knitr::kable(py$violation_spectrum, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+Again, we have another significantly right-skewed frequency distribution.  Whereas half of the violation codes have `r py$violation_spectrum[1,6]` or fewer blight tickets, there are others with upwards of `r py$violation_spectrum[1,8]` tickets as shown in `r kfigr::figr(label = "violation_top10", prefix = TRUE, link = TRUE, type="Table")`.
+
+`r kfigr::figr(label = "violation_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Violations by Blight Tickets Written
+```{r violation_top10}
+knitr::kable(py$violation_top10, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+There are no obvious data quality issues with this variable, and as with inspector, we may also consider the quantity of past tickets written against a violation code as well as the percentage of tickets that were compliant. Again, we'll take a note and re-address this at feature engineering time.
+
+* * * 
+### Violator 
+```{python violator, code = readLines("../ida.py")[123:132]}
+```
+
+As indicated below, there are `r py$violator_summary$missing` values for the violator_name variable. Rather than removing these observations, we can impute the missing violation names with the violation street address.
+
+`r kfigr::figr(label = "violator_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Violator Summary
+```{r violator_summary}
+knitr::kable(py$violator_summary, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+```{python violator_plot, code = readLines("../ida.py")[134:136]}
+```
+`r kfigr::figr(label = "violator_plot", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket by Violator Frequency Histogram
+
+`r kfigr::figr(label = "violator_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Blight Ticket by Violator Frequency Analysis
 ```{r violator_spectrum}
 knitr::kable(py$violator_spectrum, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-Since the violator name is manually entered on each ticket by the inspector, it is subject to omission as is indicated by the `r py$violator_missing` missing values, and/or spelling variation which could distort any analysis based upon this variable. Insofar as we would like to use variable name as a basis for deriving new variables, such as the number of past violations,  we'll need to make some assumptions. First, we'll assume any missing violator names can be imputed from the street number and address of the violation. Second, we will assume any variations in spelling are intentional.
+As depicted in `r kfigr::figr(label = "violator_plot", prefix = TRUE, link = TRUE, type="Figure")` and in `r kfigr::figr(label = "violator_spectrum", prefix = TRUE, link = TRUE, type="Table")`, most violators have just a single violation; however, there are repeat offenders with upwards of `r py$violator_spectrum$max` violations.  The top 10 offenders are listed in `r kfigr::figr(label = "violator_top10", prefix = TRUE, link = TRUE, type="Table")`.
 
-* * *  
+`r kfigr::figr(label = "violator_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Violations by Blight Tickets Written
+```{r violator_top10}
+knitr::kable(py$violator_top10, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
 
-### Address Variables
-As shown in `r kfigr::figr(label = "vars", prefix = TRUE, link = TRUE, type="Figure")`, there are no null values for the violation street number and name variables. Mailing address street number and name are subject to omission with 
+Again, we see no obvious data quality issues with this variable; as such, we may consider differentiating repeat offenders by assigning violators to one of several groups, based upon the number of offenses.
+
+* * * 
+### Violation Street
+```{python violation_street, code = readLines("../ida.py")[142:151]}
+```
+
+Each of the `r py$violation_street_summary$observations` observations is written against a parcel on one of `r py$violation_street_summary$unique` streets in Detroit.  There are no missing values for this variable.
+
+`r kfigr::figr(label = "violation_street_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Street Summary
+```{r violation_street_summary}
+knitr::kable(py$violation_street_summary, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+```{python violation_street_plot, code = readLines("../ida.py")[153:155]}
+```
+`r kfigr::figr(label = "violation_street_plot", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket by Street Frequency Histogram
+
+`r kfigr::figr(label = "violation_street_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Blight Ticket by Street Frequency Analysis
+```{r violation_street_spectrum}
+knitr::kable(py$violation_street_spectrum, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+As depicted in `r kfigr::figr(label = "violation_street_plot", prefix = TRUE, link = TRUE, type="Figure")` and in `r kfigr::figr(label = "violation_street_spectrum", prefix = TRUE, link = TRUE, type="Table")`, the median number of tickets per street is `r py$violation_street_spectrum[1,6]`; however, the mean is `r round(py$violation_street_spectrum[1,2],0)` tickets per street. This is owing to outlier streets which have upwards of `r py$violation_street_spectrum$max` blight tickets written. The 10 most frequently tickets streets are listed in `r kfigr::figr(label = "violation_street_top10", prefix = TRUE, link = TRUE, type="Table")`.
+
+`r kfigr::figr(label = "violation_street_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Streets by Blight Tickets Written
+```{r violation_street_top10}
+knitr::kable(py$violation_street_top10, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+Once more, we should consider characterizing streets by the number of tickets written and the percentage of those tickets that were compliant.
+
+* * * 
+
+### City
+```{python city, code = readLines("../ida.py")[161:170]}
+```
+
+The city variable corresponds with the mailing address of the violator, distinct from the violation address.  There is a city value for each of the `r py$city_summary$observations` observations. 
+
+`r kfigr::figr(label = "city_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Mailing City Summary
+```{r city_summary}
+knitr::kable(py$city_summary, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+```{python city_plot, code = readLines("../ida.py")[172:174]}
+```
+`r kfigr::figr(label = "city_plot", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket by Mailing City Frequency Histogram
+
+`r kfigr::figr(label = "city_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Blight Ticket by Mailing City Frequency Analysis
+```{r city_spectrum}
+knitr::kable(py$city_spectrum, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+As depicted in `r kfigr::figr(label = "city_plot", prefix = TRUE, link = TRUE, type="Figure")` and in `r kfigr::figr(label = "city_spectrum", prefix = TRUE, link = TRUE, type="Table")`, the median number of tickets per street is `r py$city_spectrum[1,6]`; however, the mean is `r round(py$city_spectrum[1,2],0)` tickets per city. This is because nearly all violators live in Detroit.
+
+`r kfigr::figr(label = "city_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Mailing Cities by Blight Tickets Written
+```{r city_top10}
+knitr::kable(py$city_top10, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+There are some data quality issues; however. Any analysis based upon city would require some cleaning and normalization of this field as evidenced by the various spellings and representations of the city of Detroit in `r kfigr::figr(label = "city_top10", prefix = TRUE, link = TRUE, type="Table")`.
+
+* * * 
+### State
+```{python state, code = readLines("../ida.py")[181:190]}
+```
+
+`r kfigr::figr(label = "state_summary", prefix = TRUE, link = TRUE, type="Table")` indicates that there are `r py$state_summary$missing` missing values for state. This can be a consequence of having non-US violators or omission. We can adopt the following imputation strategy. If the country variable is US, we'll assume the state is Michigan.  For NON-US violators, we'll leave the value null as is.
+
+`r kfigr::figr(label = "state_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Mailing State Summary
+```{r state_summary}
+knitr::kable(py$state_summary, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+```{python state_plot, code = readLines("../ida.py")[192:194]}
+```
+`r kfigr::figr(label = "state_plot", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket by Mailing State Frequency Histogram
+
+`r kfigr::figr(label = "state_spectrum", prefix = TRUE, link = TRUE, type="Table")`: Blight Ticket by Mailing State Frequency Analysis
+```{r state_spectrum}
+knitr::kable(py$state_spectrum, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+As depicted in `r kfigr::figr(label = "state_plot", prefix = TRUE, link = TRUE, type="Figure")` and in `r kfigr::figr(label = "state_spectrum", prefix = TRUE, link = TRUE, type="Table")`, the median number of tickets per street is `r py$state_spectrum[1,6]`; however, the mean is `r round(py$state_spectrum[1,2],0)` tickets per state. This is because nearly all violators live in Detroit.
+
+`r kfigr::figr(label = "state_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Mailing Cities by Blight Tickets Written
+```{r state_top10}
+knitr::kable(py$state_top10, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+Aside from the missing values, there are no other data quality issues with this variable. 
 
 
 ### Summary
 1. Combine the agency variable categorical levels for Neighborhood City Halls and Detroit Police Department into a single categorical level.
-2. Create an 'inspector productivity' variable which captures the number of past tickets written by the inspector of a blight ticket. Consider log transforming this variable to reduce the amount of skew.
-3. Create an 'inspector effectiveness' variable which is the percentage of past tickets written that were compliant.
-4. Impute missing violator names with the street number and address of the violation.
+2. Impute missing violator names with the street number and address of the violation.
+
+New Features   
+As we noted above, there are two types of features to introduce: productivity and compliance levels.  The productivity level variable would be the number of past tickets written and the compliance level would be the percentage of past tickets written that were compliant.  We would create these two variables for each of the following variables:   
+* Agency
+* Inspector
+* Violation Code
+* Violator
+* Violation Street
+
+In addition, we may want to categorize the above by compliance levels. For instance, we may want to have an inspector productivity level variable with several levels based upon the percentage of compliant tickets written.
