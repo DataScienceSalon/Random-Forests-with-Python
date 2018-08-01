@@ -1,45 +1,70 @@
-# Detroit Blight Ticket Data Initial Data Analysis 
+# Initial Data Analysis
 *This is the first of a six-part series created to analyze and predict blight ticket compliance in the city of Detroit. You can find links to the other articles in this series at the bottom of the post.* 
 
 The primary concern of the initial data analysis is data quality and engages questions such as:  
-1. How should missing and faulty data be treated?    
-2. What initial data transformations would be appropriate?  
-3. What is the distribution and frequency characteristics of categorical variables?    
-4. How should the data be prepared for exploratory data analysis and modeling?  
+1. How should missing and faulty data be treated?   
+2. Do data properties agree with expectations?  
+3. What initial data transformations would be appropriate?  
+4. What are the distribution and frequency characteristics of categorical variables?    
+5. What inconsistencies exist and what should be done about them?  
+6. What outliers exist and what are the implications for further statistical analyses?  
 
-This article will examine the Detroit Blight Ticket Data in some detail and prescribe treatments and corrective actions which will be implemented in the following data preparation phase.
+This article will examine the Detroit Blight Ticket Data in some detail, examine the data and their properties, illuminate any inconsistencies and prescribe treatments and corrective actions which will be implemented in the following data preparation phase.
 
 ## Blight Ticket Data
-The data for this project was made available courtesy of the publicly accessible Detroit Open Data Portal. Available blight ticket data has been split into a training set containing observations from 2005-2011 and a test set including blight tickets written between 2012 and 2016. Each row in these two files corresponds to a single blight ticket, and includes information about when, why, and to whom each ticket was issued. The target variable is compliance, which is True if the ticket was paid early, on time, or within one month of the hearing date, False if the ticket was paid after the hearing date or not at all, and Null if the violator was found not responsible. Compliance, as well as a handful of other variables that will not be available at test-time, are only included in train.csv. In addition, all tickets where the violators were determined to be "not responsible" are not considered during evaluation. They are included in the training set as an additional source of data for visualization, and to enable unsupervised and semi-supervised approaches. 
+The data for this project was made available courtesy of the publicly accessible Detroit Open Data Portal. Available blight ticket data has been split into a training set containing observations from 2005-2011 and a test set including blight tickets written between 2012 and 2016. Each row in these two files corresponds to a single blight ticket, and includes information about when, why, and to whom each ticket was issued. The target variable is compliance, which is True if the ticket was paid early, on time, or within one month of the hearing date, False if the ticket was paid after the hearing date or not at all, and Null if the violator was found not responsible. Compliance, as well as a handful of other variables that will not be available at test-time, are only included in train.csv. In addition, all tickets where the violators were determined to be "not responsible" are not considered during evaluation. They are included in the training set as an additional source of data for visualization, and to enable unsupervised and semi-supervised approaches. Here are the variables and their definitions.
 
-Two additional files, addresses.csv and latlons.csv have been provided for geolocation purposes. The former contains the violation addresses mapped to ticket_ids and the latter maps the addresses to latitude and longitude coordinates. 
+train.csv & test.csv
 
-* * *  
+* ticket_id - unique identifier for tickets   
+* agency_name - Agency that issued the ticket  
+* inspector_name - Name of inspector that issued the ticket  
+* violator_name - Name of the person/organization that the ticket was issued to   
+* violation_street_number, violation_street_name, violation_zip_code - Address where the violation occurred  
+* mailing_address_str_number, mailing_address_str_name, city, state, zip_code, non_us_str_code, country - Mailing address of the violator  
+* ticket_issued_date - Date and time the ticket was issued   
+* hearing_date - Date and time the violator's hearing was scheduled   
+* violation_code, violation_description - Type of violation   
+* disposition - Judgment and judgement type   
+* fine_amount - Violation fine amount, excluding fees   
+* admin_fee - $20 fee assigned to responsible judgments   
+* state_fee - $10 fee assigned to responsible judgments   
+* late_fee - 10% fee assigned to responsible judgments   
+* discount_amount - discount applied, if any   
+* clean_up_cost - DPW clean-up or graffiti removal cost   
+* judgment_amount - Sum of all fines and fees   
+* grafitti_status - Flag for graffiti violations   
 
-```{python libraries, code = readLines("../ida.py")[6:15]}
-```
-## Blight Ticket Data Overview
+train.csv only    
+
+* payment_amount - Amount paid, if any  
+* payment_date - Date payment was made, if it was received   
+* payment_status - Current payment status as of Feb 1 2017   
+* balance_due - Fines and fees still owed  
+* collection_status - Flag for payments in collections   
+* compliance [target variable for prediction]   
++ Null = Not responsible  
+ 0 = Responsible, non-compliant  
+ 1 = Responsible, compliant  
+* compliance_detail - More information on why each ticket was marked compliant or non-compliant  
+
 ```{python ida_read, code = readLines("../ida.py")[20:33]}
 ```
 
-The blight dataframe summarized in `r kfigr::figr(label = "format", prefix = TRUE, link = TRUE, type="Table")` contains `r nrow(py$df)` blight ticket observations and `r ncol(py$df)` variables.
+The blight dataframe summarized contains `r nrow(py$df)` blight ticket observations and `r ncol(py$df)` variables.
 
-```{python ida_info}
-print(df.info())
-```
-`r kfigr::figr(label = "format", prefix = TRUE, link = TRUE, type="Figure")`: Blight Ticket Data Overview
+Two additional files, addresses.csv and latlons.csv have been provided for geolocation purposes. The former contains the violation addresses mapped to ticket_ids and the latter maps the addresses to latitude and longitude coordinates. 
 
 Not every variable will be relevant to, or useful for, analysis and modeling. Let's trim the dataset down to the relevant observations and variables.
 
 * * *  
-
 ## Data Selection
-Here, we will identify the relevant observations and variables and eliminate the superfluous, redundant, and tangential data. Since our focus is blight ticket compliance, those observations with a "not responsible" determination can be removed. As indicated above, the variables containing payment and balance information are only included in the training set and can therefore be discarded. Redundant variables such as those containing fees, costs and discounts can also be eliminated from further analysis. 
+Here, we will identify the relevant observations and variables and eliminate the superfluous, redundant, and tangential data. We are only interested in tickets in which the violator was deemed 'responsible', those tickets with a 'not responsible' designation will be removed. Variables containing payment and balance information are only included in the training set and can therefore be discarded. Redundant variables such as those containing fees, costs and discounts can also be eliminated from further analysis. 
 
 ```{python ida_select, code = readLines("../ida.py")[39:46]}
 ```
 
-The trimmed dataframe described in `r kfigr::figr(label = "ida_vars", prefix = TRUE, link = TRUE, type="Figure")` now contains `r nrow(py$df)`  observations and `r ncol(py$df)` variables.  We can now proceed with the univariate data analysis. 
+The trimmed dataframe described in `r kfigr::figr(label = "ida_vars", prefix = TRUE, link = TRUE, type="Figure")` now contains `r nrow(py$df)`  observations and the following `r ncol(py$df)` variables.  We can now proceed with the univariate data analysis. 
 
 ```{python ida_vars, echo=FALSE}
 print(df.info())
@@ -51,12 +76,12 @@ print(df.info())
 ## Univariate Analysis
 Again, the univariate data analysis is primarily concerned with characterizing the quality of the data. The following descriptive statistics and frequency analyses will inform our downstream data processing, feature selection, feature engineering and modeling decisions. 
 
+Let's start with the target variable, Compliance. Por qué no? 
+
 ### Compliance  
 ```{python compliance, code = readLines("../ida.py")[53:59]}
 ```
-Let's start with the target variable, Compliance. Por qué no? 
-
-As graphically depicted in `r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`, the vast majority of blight tickets (`r round(py$compliance$Percent[2], 1)`%) were 'Non-Compliant' and there are no missing values.
+The compliance variable contains either zero or one for all observations as expected. As graphically depicted in `r kfigr::figr(label = "compliance_plot", prefix = TRUE, link = TRUE, type="Figure")`, the vast majority of blight tickets (`r round(py$compliance$Percent[2], 1)`%) were 'Non-Compliant' and there are no missing values.
 
 ```{python compliance_plot, code = readLines("../ida.py")[61:63]}
 ```
@@ -67,6 +92,8 @@ As graphically depicted in `r kfigr::figr(label = "compliance_plot", prefix = TR
 knitr::kable(py$compliance, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
+
+Though no data quality issues present at this stage, a `r round(py$compliance$Percent[1], 1)`% compliance rate is rather abysmal indeed.
 
 * * * 
 ### Agency
@@ -108,7 +135,7 @@ knitr::kable(py$inspector_spectrum, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-As indicated in `r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`, the distribution of blight ticket counts among the inspectors is significantly right-skewed. The median number of tickets is `r py$inspector_spectrum[1,6]`; whereas the mean is approximately `r round(py$inspector_spectrum[1,2], 0)` tickets, a differencing owing to outlier inspectors with upwards of  `r round(py$inspector_spectrum[1,8], 0)` blight tickets written as shown in `r kfigr::figr(label = "inspector_top10", prefix = TRUE, link = TRUE, type="Table")`.
+As indicated in `r kfigr::figr(label = "inspector_plot", prefix = TRUE, link = TRUE, type="Figure")`, the distribution of blight ticket counts among the inspectors is significantly right-skewed. The median number of tickets per inspector is `r py$inspector_spectrum[1,6]`; whereas, the mean is approximately `r round(py$inspector_spectrum[1,2], 0)` tickets, a differencing owing to outlier inspectors with upwards of  `r round(py$inspector_spectrum[1,8], 0)` blight tickets written as shown in `r kfigr::figr(label = "inspector_top10", prefix = TRUE, link = TRUE, type="Table")`. We'll need to determine, during the exploratory phase, the degree to which these outliers influence the regression and decide upon an appropriate treatment.
 
 `r kfigr::figr(label = "inspector_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Inspectors by Blight Tickets Written
 ```{r inspector_top10}
@@ -117,14 +144,14 @@ knitr::kable(as.data.frame(py$inspector_top10, row.names = NULL), digits = 1) %>
 ```
 
 
-No data quality issues appear extant; however, we may want to consider adding two new variables to capture the quantity and quality of tickets issued by an inspector. We could measure 'inspector productivity' as the number of prior tickets written and 'inspector effectivness' as the percentage of prior tickets written that were compliant. Let's put a pin in it for now and revisit this later at feature engineering time.
+No data quality issues appear extant; however, we may want to consider adding two new variables to capture the quantity and quality of tickets issued by an inspector in terms of the overall number of tickets written and the percentage of those tickets which were compliant. This will allow us to categorize inspectors based upon compliance percentage, thereby reducing the number categorical levels to something more tractable.  Let's put a pin in it for now and revisit this during the exploratory phase.
 
 * * * 
 ### Violation Code
 ```{python violation, code = readLines("../ida.py")[104:113]}
 ```
 
-`r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")` confirms that each of the `r py$violation_summary$observations` observations is written against one of `r py$violation_summary$unique` violation codes. There are no missing values.
+`r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")` confirms that each of the `r py$violation_summary$observations` observations was written against one of `r py$violation_summary$unique` violation codes. There are no missing values.
 
 `r kfigr::figr(label = "violation_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Violation Code Summary
 ```{r violation_summary}
@@ -150,14 +177,16 @@ knitr::kable(py$violation_top10, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-There are no obvious data quality issues with this variable, and as with inspector, we may also consider the quantity of past tickets written against a violation code as well as the percentage of tickets that were compliant. Again, we'll take a note and re-address this at feature engineering time.
+There are no obvious data quality issues with this variable, and as with inspector, we may also consider the quantity of past tickets written against a violation code as well as the percentage of tickets that were compliant. As with inspector, we can create a new violation code compliance variable based upon compliance percentage thereby reducing the number of categorical levels associated with violations.
+
+Again, we'll take a note and re-address this at feature engineering time.
 
 * * * 
 ### Violator 
 ```{python violator, code = readLines("../ida.py")[123:132]}
 ```
 
-As indicated below, there are `r py$violator_summary$missing` values for the violator_name variable. Rather than removing these observations, we can impute the missing violation names with the violation street address.
+As indicated below, there are `r py$violator_summary$missing` missing values for the violator_name variable. Rather than removing these observations, we can impute the missing violation names with the violation street address.
 
 `r kfigr::figr(label = "violator_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Violator Summary
 ```{r violator_summary}
@@ -183,14 +212,14 @@ knitr::kable(py$violator_top10, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-Again, we see no obvious data quality issues with this variable; as such, we may consider differentiating repeat offenders by assigning violators to one of several groups, based upon the number of offenses.
+Again, we see no obvious data quality issues with this variable; as such, we may consider differentiating repeat offenders by assigning violators to one of several groups, based upon the number of offenses. A compliance rate categorical variable will allow us to categorize violators in terms of past compliance.
 
 * * * 
 ### Violation Street
 ```{python violation_street, code = readLines("../ida.py")[142:151]}
 ```
 
-Each of the `r py$violation_street_summary$observations` observations is written against a parcel on one of `r py$violation_street_summary$unique` streets in Detroit.  There are no missing values for this variable.
+Each of the `r py$violation_street_summary$observations` observations was written against a parcel on one of `r py$violation_street_summary$unique` streets in Detroit.  There are no missing values for this variable.
 
 `r kfigr::figr(label = "violation_street_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Street Summary
 ```{r violation_street_summary}
@@ -208,7 +237,9 @@ knitr::kable(py$violation_street_spectrum, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-As depicted in `r kfigr::figr(label = "violation_street_plot", prefix = TRUE, link = TRUE, type="Figure")` and in `r kfigr::figr(label = "violation_street_spectrum", prefix = TRUE, link = TRUE, type="Table")`, the median number of tickets per street is `r py$violation_street_spectrum[1,6]`; however, the mean is `r round(py$violation_street_spectrum[1,2],0)` tickets per street. This is owing to outlier streets which have upwards of `r py$violation_street_spectrum$max` blight tickets written. The 10 most frequently tickets streets are listed in `r kfigr::figr(label = "violation_street_top10", prefix = TRUE, link = TRUE, type="Table")`.
+As depicted in `r kfigr::figr(label = "violation_street_plot", prefix = TRUE, link = TRUE, type="Figure")` and in `r kfigr::figr(label = "violation_street_spectrum", prefix = TRUE, link = TRUE, type="Table")`, the median number of tickets per street is `r py$violation_street_spectrum[1,6]`; however, the mean is `r round(py$violation_street_spectrum[1,2],0)` tickets per street. This is owing to outlier streets which have upwards of `r py$violation_street_spectrum$max` blight tickets written. We'll need to examine the effects of the outliers during exploration. 
+
+The 10 most frequently tickets streets are listed in `r kfigr::figr(label = "violation_street_top10", prefix = TRUE, link = TRUE, type="Table")`.
 
 `r kfigr::figr(label = "violation_street_top10", prefix = TRUE, link = TRUE, type="Table")`: Top 10 Streets by Blight Tickets Written
 ```{r violation_street_top10}
@@ -220,11 +251,11 @@ Once more, we should consider characterizing streets by the number of tickets wr
 
 * * * 
 
-### City
+### City (Mailing)
 ```{python city, code = readLines("../ida.py")[161:170]}
 ```
 
-The city variable corresponds with the mailing address of the violator, distinct from the violation address.  There is a city value for each of the `r py$city_summary$observations` observations. 
+The city variable corresponds to the mailing address of the violator, distinct from the violation address.  There is a city value for each of the `r py$city_summary$observations` observations. 
 
 `r kfigr::figr(label = "city_summary", prefix = TRUE, link = TRUE, type="Table")`: Blight Tickets by Mailing City Summary
 ```{r city_summary}
@@ -250,7 +281,7 @@ knitr::kable(py$city_top10, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-There are some data quality issues; however. Any analysis based upon city would require some cleaning and normalization of this field as evidenced by the various spellings and representations of the city of Detroit in `r kfigr::figr(label = "city_top10", prefix = TRUE, link = TRUE, type="Table")`.
+Any analysis based upon city would require some cleaning and normalization of this field as evidenced by the various spellings and representations of the city of Detroit in `r kfigr::figr(label = "city_top10", prefix = TRUE, link = TRUE, type="Table")`.
 
 * * * 
 ### State
@@ -315,7 +346,7 @@ knitr::kable(py$zip_code_top10, digits = 1) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-Aside from the single missing value, there are no other data quality issues with this variable. That said, the zip code variable may be too granular to be useful as a predictor since it would require `r py$zip_code_summary$unique` categorical levels.  We may consider creating a new variable from the first three numbers of the zip code which pertains to regional areas.
+Aside from the single missing value, there are no obvious data quality issues with this variable. That said, the zip code variable may be too granular to be useful as a predictor since it would require `r py$zip_code_summary$unique` categorical levels.  We may consider creating a new variable from the first three numbers of the zip code which pertain to regional areas.
 
 * * * 
 ### Country
@@ -350,7 +381,9 @@ This data will be useful for a geolocation based visualization of the blight tic
 ### Dates
 ```{python dates, code = readLines("../ida.py")[241:252]}
 ```
-Ticket issued dates appear to be in satisfactory condition. There are no missing dates and the date ranges are those that were expected.  However, two issues arise upon examination of the hearing dates. First, there are over 200 missing hearing dates and there are `r nrow(py$errors)` observations where the hearing date did not follow the date in which the ticket was issued. A sample of the potential errors are listed in `r kfigr::figr(label = "date_errors", prefix = TRUE, link = TRUE, type="Table")`.
+Ticket issued dates appear to be in satisfactory condition and there are no missing dates; however we do have tickets dated back to 1988 in the training set. According to the data source, the ticket dates were to start in 2005.  We'll need to examine such outliers during the next phase. 
+
+Two additional issues arise upon examination of the hearing dates. First, there are over 200 missing hearing dates and there are `r nrow(py$errors)` observations where the hearing date did not follow the date in which the ticket was issued. A sample of the potential errors are listed in `r kfigr::figr(label = "date_errors", prefix = TRUE, link = TRUE, type="Table")`.
 
 `r kfigr::figr(label = "dates_summary", prefix = TRUE, link = TRUE, type="Table")`: Summary of Ticket Issued and Hearing Dates
 ```{r dates_summary}
@@ -364,26 +397,18 @@ knitr::kable(py$sample_errors, digits = 2) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-For both the missing and presumably incorrect hearing dates, the following imputation strategy could be adopted. Determine the mean interval between ticket issued date and hearing date for each violation code.  Add this mean interval for the violation code to the ticket issued date to arrive at a new hearing date for observations for which the hearing date is missing or presumed to be incorrect.
+For both the missing and presumably incorrect hearing dates, new hearing dates may be imputed based upon the mean interval between ticket issued dates and hearing dates, overall or at the violation code level.
 
 * * * 
 ### Judgment Amount
-Alas, we come to the last variable for this univariate exploration. Judgment amounts covered a significant range from \$0 upwards to `r round(py$ja_distribution$max, 0)`\$. An inspection of the data revealed `r nrow(py$zero_ja)` observations with zero judgment amounts. All of these blight tickets were judged 'compliant by no fine'. 
-
 ```{python ja, code = readLines("../ida.py")[258:261]}
 ```
+Alas, we come to the last variable for this univariate exploration. Judgment amounts covered a significant range from \$0 upwards to `r round(py$ja_distribution$max, 0)`\$. An inspection of the data revealed `r nrow(py$zero_ja)` observations with zero judgment amounts. All of these blight tickets were judged 'compliant by no fine'. 
 
 
 ```{python ja_plot, code = readLines("../ida.py")[263:265]}
 ```
 `r kfigr::figr(label = "ja_plot", prefix = TRUE, link = TRUE, type="Figure")`: Distribution of Judgment Amounts
-
-
-`r kfigr::figr(label = "ja_summary", prefix = TRUE, link = TRUE, type="Table")`: Summary of Judgment Amounts
-```{r ja_summary}
-knitr::kable(py$ja_summary, digits = 2) %>%
-  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
-```
 
 `r kfigr::figr(label = "ja_distribution", prefix = TRUE, link = TRUE, type="Table")`: Distribution of Judgment Amounts
 ```{r ja_distribution}
@@ -391,24 +416,28 @@ knitr::kable(py$ja_distribution, digits = 2) %>%
   kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
 ```
 
-As indicated in `r kfigr::figr(label = "ja_summary", prefix = TRUE, link = TRUE, type="Table")` and `r kfigr::figr(label = "ja_distribution", prefix = TRUE, link = TRUE, type="Table")`, both the mean and the mode judgment amount is `r round(ja_summary$top, 0)`\$. There were no obvious date quality issues with this variable.
+As indicated in `r kfigr::figr(label = "ja_distribution", prefix = TRUE, link = TRUE, type="Table")`, both the mean and the mode judgment amount is `r round(py$ja_distribution[1,6], 0)`\$. There were no obvious date quality issues with this variable; however, outliers must be examined in terms of their influence on regression.
 
 * * * 
 
-
 ### Summary
+To wrap up this part of the analysis, let's quickly summarize our actions, observations and implications for next steps. We've reduced the data set from `r nrow(py$df)` blight ticket observations and `r ncol(py$df)` variables to `r nrow(py$df)`  observations and `r ncol(py$df)` variables. Aside from a few missing values for violator name, state, zip code, and hearing date and spelling variation in the city variable, there were no glaring data quality issues.  However, the frequency distributions of blight tickets all categorical variables were significantly right skewed. A thorough outlier assessment should be conducted during the exploration phase to ascertain the influence of such outliers on the regression lines.
+
+With respect to data preparation, the following treatments were identified: 
 1. Combine the agency variable categorical levels for Neighborhood City Halls and Detroit Police Department into a single categorical level.
 2. Impute missing violator names with the street number and address of the violation.
-3. Impute missing or incorrect hearing dates using the mean interval date for the violation code.
+3. Missing states for US based violators should be imputed as 'MI' for Michigan.  
+4. Impute missing or incorrect hearing dates using the mean interval date for the violation code.
+5. Reduce the categorical levels of zip code with a new region variable which contains the first three numbers of the zip code.
+4. Conduct thorough assessments of outliers for any variables considered for modeling.  
 
-New Features   
-As we noted above, there are two types of features to introduce: productivity and compliance levels.  The productivity level variable would be the number of past tickets written and the compliance level would be the percentage of past tickets written that were compliant.  We would create these two variables for each of the following variables:   
+New features should be created to capture total tickets written and compliance rates for the following categorical variables:  
 * Agency
 * Inspector
 * Violation Code
 * Violator
 * Violation Street
 
-In addition, we may want to categorize the above by compliance levels. For instance, we may want to have an inspector productivity level variable with several levels based upon the percentage of compliant tickets written.
+Once we've measured tickets and compliance rates, we can introduce new variables which characterize agency, inspector, violator, violation code and street compliance.
 
-Create a region variable from the first three numbers of the zip code.
+This concludes the initial data analysis phase. Next, the exploratory data analysis phase will address the primary research question: which variables best predict compliance. 

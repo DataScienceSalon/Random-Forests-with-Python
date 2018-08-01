@@ -15,9 +15,9 @@ The two fold objective of this project is to:
 
 The project will unfold in a six-part series including:  
 * Initial Data Analysis  
-* Data Preparation & Feature Engineering  
-* Exploratory Data Analysis  
-* Introduction to Random Forests   
+* Exploratory Data Analysis
+* Feature Engineering
+* Introduction to Random Forests   * 
 * Random Forests Model Building    
 * Model Evaluation and Conclusion    
 
