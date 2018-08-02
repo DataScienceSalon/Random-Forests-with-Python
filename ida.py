@@ -258,7 +258,7 @@ sample_errors = errors.sample(10)
 ja_summary = analysis.describe(df, df['judgment_amount'].astype(str))
 ja_distribution = df['judgment_amount'].to_frame().describe().T
 zero_ja = df[df['judgment_amount'] == 0]
-
+    
 # Render judgment amount histogram
 visual.histogram(df['judgment_amount'], "Distribution of Judgment Amount")
 plt.show()

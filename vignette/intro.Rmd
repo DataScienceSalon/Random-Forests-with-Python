@@ -17,7 +17,7 @@ The project will unfold in a six-part series including:
 * Initial Data Analysis  
 * Exploratory Data Analysis
 * Feature Engineering
-* Introduction to Random Forests   * 
+* Introduction to Random Forests   
 * Random Forests Model Building    
 * Model Evaluation and Conclusion    
 
