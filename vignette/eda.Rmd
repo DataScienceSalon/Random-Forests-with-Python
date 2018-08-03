@@ -1,0 +1,80 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+# Exploratory Data Analysis
+*This is the second of a six-part series created to analyze and predict blight ticket compliance in the city of Detroit. You can find links to the other articles in this series at the bottom of the post.* 
+
+## Project Background and Recap
+In case you're just joining us, the purpose of this project is to analyze and interpret the factors associated with low blight ticket compliance in the city of Detroit, and to build a random-forests based model to predict blight ticket compliance. Properties in various states of disrepair, collectively referred to as blight, are a costly and wide-spread problem in Detroit, affecting over 20% of its properties. In 2005, the City of Detroit began issuing blight violation citations to encourage homeowners to keep their properties in good conduction and to help finance blight remediation. These so-called blight tickets, ranging from \$20 for trash collection day offenses to \$10,000 for excessive waste dumping, may be contested in a hearing. If the violation is fixed before the hearing, the person would be deemed 'not responsible' for the ticket. Every year, the city of Detroit issues millions of dollars in fines to residents and every year, many of these fines remain unpaid. In fact, the compliance rate for blight tickets in which the person is deemed responsible is approximately 7%. Nearly 93% of fines never get paid,leaving over $70,000,000 in unpaid blight tickets since 2005.  
+
+In the last post, we conducted an initial data analysis of blight ticket data publicly accessible via the Detroit Open Data Portal. The purpose of which wes to reveal any data quality issues and to aasess its readiness for further exploration, analysis and modeling. Subsequently, a series of data preparation tasks were conducted (enter link) to clean the data, imputing missing values, normalize categorical variables, and introduce compliance history for various categorical variables. The preprocessed data variables are:  
+
+```{r get_variables}
+vars <- read.xlsx(xlsxFile = "../notes/variables.xlsx")
+```
+
+## Data
+
+### Agency Variables
+Five agencies have been authorized to write blight tickets and they are:  
+* Buildings, Safety Engineering & Env Department	  
+* Department of Public Works	  
+* Detroit Police Department	   
+* Health Department	  
+* Neighborhood City Halls    
+The following variables capture blight compliance for these organizations. 
+
+`r kfigr::figr(label = "agency_vars", prefix = TRUE, link = TRUE, type="Table")`: Agency Variables
+```{r agency_vars}
+agency <- vars %>% filter(Include == "Y" & Category == "Agency") %>% select(Variable, Description)
+knitr::kable(agency, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+
+### Inspector Variables
+The data contains blight tickets for 159 inspectors authorized to issue blight tickets.  The following variables characterize their compliance.
+`r kfigr::figr(label = "inspector_vars", prefix = TRUE, link = TRUE, type="Table")`: Inspector Variables
+```{r inspector_vars}
+inspector <- vars %>% filter(Include == "Y" & Category == "Inspector") %>% select(Variable, Description)
+knitr::kable(inspector, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+### Violator Variables
+Here, we quantify the compliance of violators ate the individual level, as well as violators by state and region.  
+`r kfigr::figr(label = "violator_vars", prefix = TRUE, link = TRUE, type="Table")`: Violator Variables
+```{r violator_vars}
+violator <- vars %>% filter(Include == "Y" & Category == "Violator") %>% select(Variable, Description)
+knitr::kable(violator, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+### Violation Variables
+There are approximately 190 violation codes that codify blight offenses. These variables capture compliance information at the violation code level.
+`r kfigr::figr(label = "violation_vars", prefix = TRUE, link = TRUE, type="Table")`: Violation Variables
+```{r violation_vars}
+violation <- vars %>% filter(Include == "Y" & Category == "Violation") %>% select(Variable, Description)
+knitr::kable(violation, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+### Judgment Amount Variables
+Does compliance relate to judgment amount? Examination of the following will address this question. 
+`r kfigr::figr(label = "amount_vars", prefix = TRUE, link = TRUE, type="Table")`: Judgement Amount Variables
+```{r amount_vars}
+amount <- vars %>% filter(Include == "Y" & Category == "Amount") %>% select(Variable, Description)
+knitr::kable(amount, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```
+
+### Date Variables
+Is there a pattern of compliance over time?  Here, we'll explore whether their is a time dimension to compliance. 
+`r kfigr::figr(label = "dates_vars", prefix = TRUE, link = TRUE, type="Table")`: Date Variables
+```{r dates_vars}
+dates <- vars %>% filter(Include == "Y" & Category == "Date") %>% select(Variable, Description)
+knitr::kable(dates, digits = 1) %>%
+  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center") 
+```

@@ -98,12 +98,17 @@ def preprocess(df):
 
 
     #-------------------------------------------------------------------------#
-    # Violator Variables                                                     # 
+    # Violator Variables                                                      # 
     #-------------------------------------------------------------------------#
+    # Impute missing values
+    df['violator_name'] = np.where(df.violator_name.isnull(), 
+             (df['violation_street_number'].map(str) + ' ' + df['violation_street_name']),
+             df['violator_name'])
     df = df.sort_values(by = ['violator_name','ticket_issued_date', 'compliance'])
     df['violator_tickets'] = df.groupby('violator_name').cumcount() + 1
     df['violator_compliance'] = df.groupby('violator_name')['compliance'].cumsum()
     df['violator_compliance_pct'] = df['violator_compliance'] * 100 / df['violator_tickets'] 
+    
 
 
     #-------------------------------------------------------------------------#
@@ -142,6 +147,8 @@ def preprocess(df):
     #-------------------------------------------------------------------------#
     # State Variables                                                         #  
     #-------------------------------------------------------------------------#
+    df['state'] = np.where(df.state.isnull() & df['country'] == 'USA', 
+                            "MI", df['state'])
     df = df.sort_values(by = ['state','ticket_issued_date', 'compliance'])
     df['state_tickets'] = df.groupby('state').cumcount() + 1
     df['state_compliance'] = df.groupby('state')['compliance'].cumsum()
@@ -221,7 +228,13 @@ def preprocess(df):
     df['y'] = np.cos(np.radians(df['lat'])) * np.sin(np.radians(df['lon']))
     df['z'] = np.sin(np.radians(df['lat']))
 
+    #-------------------------------------------------------------------------#
+    # Drop unnecessary variables                                              # 
+    #-------------------------------------------------------------------------#
+    df = df.drop(columns = ['city', 'state', 'zip_code'])
+
     print(df.info())
+    #print(df.head())
 
     return(df)
    

@@ -440,6 +440,7 @@ Several data preparation treatments were identified. Concretely:
 **Violator**    
 * Create the violator_tickets variable to capture the number of past blight tickets written for a violator.   
 * Create the violator_compliance variable, which is the percentage of past tickets which were compliant.  
+* Impute missing violator names with the violation street name and number.  
 
 **Violation Street**   
 * Create the violation_street_tickets variable to capture the number of past blight tickets for each violation_street.
