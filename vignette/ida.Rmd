@@ -424,50 +424,49 @@ To wrap up this part of the analysis, let's quickly summarize our actions, obser
 
 Several data preparation treatments were identified. Concretely:   
 **Agency**   
-*  Combine the agency variable categorical levels for Neighborhood City Halls and Detroit Police Department into a single categorical level.  
+* Combine the agency variable categorical levels for Neighborhood City Halls and Detroit Police Department into a single categorical level.  
+* Create the agency variable to capture the number of past blight tickets.  
+* Create the agency variable, which is the percentage of past tickets which were compliant.   
+
 
 **Inspector**    
 * Create the inspector_tickets variable to capture the number of past blight tickets for each inspector ticket.   
-* Create the inspector_tickets_log as the log transformation of inspector_tickets.  
 * Create the inspector_compliance variable, which is the percentage of past tickets which were compliant.  
-* Create the inspector_productivity variable, a binned categorical variable based upon the inspector_tickets variable.  
-* Create the inspector_effectiveness variable, a binned categorical variable based upon the inspector_compliance variable.  
 
 **Violation Code**   
 * Create the violation_code_tickets variable to capture the number of past blight tickets for each violation_code.   
-* Create the violation_code_tickets_log as the log transformation of violation_code_tickets.  
 * Create the violation_code_compliance variable, which is the percentage of past tickets which were compliant.  
-* Create the violation_code_frequency variable, a binned categorical variable based upon the violation_code_tickets variable.  
-* Create the violation_code_compliance_category variable, a binned categorical variable based upon the violation_code_compliance variable.  
 
 **Violator**    
 * Create the violator_tickets variable to capture the number of past blight tickets written for a violator.   
-* Create the violator_tickets_log as the log transformation of violator_tickets.  
 * Create the violator_compliance variable, which is the percentage of past tickets which were compliant.  
-* Create the violator_frequency variable, a binned categorical variable based upon the violator_tickets variable.  
-* Create the violator_compliance_category variable, a binned categorical variable based upon the violator_compliance variable.  
 
 **Violation Street**   
-* Create the violation_street_tickets variable to capture the number of past blight tickets for each violation_street.   
-* Create the violation_street_tickets_log as the log transformation of violation_street_tickets.  
+* Create the violation_street_tickets variable to capture the number of past blight tickets for each violation_street.
 * Create the violation_street_compliance variable, which is the percentage of past tickets which were compliant.  
-* Create the violation_street_frequency variable, a binned categorical variable based upon the violation_street_tickets variable.  
-* Create the violation_street_compliance_category variable, a binned categorical variable based upon the violation_street_compliance variable.  
+
+**City**  
+* Create a new binary categorical variable that indicates whether the mailing city for the owner is out of town.  
+* Standardize spelling of Detroit. 
+
+**State**  
+* Create a new binary categorical variable that indicates whether the mailing city for the owner is out of state.  
+* Create the state variable to capture the number of past blight tickets by owner state of residence.   
+* Create the state variable, which is the percentage of past tickets which were compliant.   
   
 **Region**   
 * Create a region variable based upon the first three numbers of the zip code.   
 * Create the region_tickets variable to capture the number of past blight tickets for each region.   
-* Create the region_tickets_log as the log transformation of region_tickets.  
 * Create the region_compliance variable, which is the percentage of past tickets which were compliant.  
-* Create the region_frequency variable, a binned categorical variable based upon the region_tickets variable.  
-* Create the region_compliance_category variable, a binned categorical variable based upon the region_compliance variable.  
 
 **Dates**   
 * Create a payment_window variable which captures the number of days between the ticket issued date and the hearing date.  
-* Hearing dates that occur on or before the ticket issued dates are considered typographical errors. One year will be added to those dates.  
-* Missing hearing dates will be imputed based upon the mean payment_window.   
+* Hearing dates that occur on or before the ticket issued dates will be imputed based upon the median payment window.  
+* Missing hearing dates will be imputed based upon the median payment_window.  
+
 
 **Judgment Amount**
-* Create a new variable representing the log transformation of the judgment amount.  
+* Create a new variable representing the log (x+1) transformation of the judgment amount. 
+ 
 
 This concludes the initial data analysis phase. Next, the exploratory data analysis phase will address the primary research question: which variables best predict compliance. 

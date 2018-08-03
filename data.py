@@ -1,53 +1,35 @@
 
 #%%
 # ============================================================================ #
-#                                    READ                                      #
+#                                 LIBRARIES                                    #
 # ============================================================================ #
 import os
 import datetime
 import pandas as pd
 import settings
-def read():    
-    #Imports training data for this script into a pandas DataFrame.   
-    df = pd.read_csv(os.path.join(settings.RAW_DATA_DIR, 'train.csv'), 
+import visual
+import calendar
+import numpy as np
+
+#%%
+# ============================================================================ #
+#                                    READ                                      #
+# ============================================================================ #
+def read(file_name):    
+    # Imports training data into a pandas DataFrame.   
+    df = pd.read_csv(os.path.join(settings.RAW_DATA_DIR, file_name), 
     encoding = "Latin-1", low_memory = False)
 
+    # Reads address and lat/long data
     addresses = pd.read_csv(os.path.join(settings.RAW_DATA_DIR,'addresses.csv'), 
     encoding = "Latin-1")
     latlong =  pd.read_csv(os.path.join(settings.RAW_DATA_DIR,'latlons.csv'), 
     encoding = "Latin-1")
 
+    # Merges address and lat/long data into the blight ticket data
     df = pd.merge(df, addresses, on = ['ticket_id'])
     df = pd.merge(df, latlong, on = ['address'])   
-
-    return df   
-#%%    
-# ============================================================================ #
-#                                   SumStats                                   #
-#              Summarizes the categorical and quantitative data.               #
-# ============================================================================ #
-import numpy as np
-import visual
-def sum_stats(df, verbose = False):
-    qual = df.describe(include = [np.object]).T
-    quant = df.describe(include = [np.number]).T
-    if (verbose):
-        visual.print_df(qual)
-        visual.print_df(quant)
-    return qual, quant
-    
-#%%
-# ============================================================================ #
-#                                   SPLIT                                      #
-#            Splits training data into training and validation set.            #
-# ============================================================================ #
-def split(df):
-    df['ticket_issued_date'] = pd.to_datetime(df['ticket_issued_date'])
-    df['hearing_date'] = pd.to_datetime(df['hearing_date'])    
-    train = df[df['ticket_issued_date'] < '2009']
-    validation = df[df['ticket_issued_date'] >= '2009']    
-    return train, validation
-
+    return(df)
 
 #%%
 # ============================================================================ #
@@ -56,90 +38,174 @@ def split(df):
 # ============================================================================ #
 def select(df, train = True):
     
-    # Filter non-responsible, hearing before ticket date, 0 fine observations 
+    # Filter training set
     if (train == True):
         df = df[pd.notnull(df['compliance'])] 
-        df = df[df['hearing_date'] > df['ticket_issued_date']]      
-        df = df[df['judgment_amount'] > 0]
-
-    
-    # Select predictors and target variables    
-    Xy = ['agency_name', 'city', 'state', 'zip_code', 
-    'ticket_issued_date', 'hearing_date', 'violation_code', 'judgment_amount',
-     'compliance', 'lat', 'lon'] 
-    df = df[Xy]
+        Xy = ['agency_name', 'inspector_name', 'violator_name', 
+            'violation_street_number', 'violation_street_name', 
+            'city', 'state', 'zip_code', 'lat', 'lon',
+            'ticket_issued_date', 'hearing_date', 'violation_code',
+            'judgment_amount', 'compliance'] 
+        df = df[Xy]
+    else:
+        Xy = ['agency_name', 'inspector_name', 'violator_name', 
+            'violation_street_number', 'violation_street_name', 
+            'city', 'state', 'zip_code', 'lat', 'lon',
+            'ticket_issued_date', 'hearing_date', 'violation_code',
+            'judgment_amount'] 
+        df = df[Xy]
 
     return df
+
 #%%
 # ============================================================================ #
 #                                 PREPROCESS                                   #
 #    Cleaning, scaling, normalization and transformation of data as needed.    #
 # ============================================================================ #
-import calendar
-import numpy as np
-def preprocess(df, train = True):  
-        
-    #-------------------------------------------------------------------------#
-    # agency_name: Combine agency name levels to meet regression conditions.  #
-    #-------------------------------------------------------------------------#
-    df = df.replace(["Health Department",    "Detroit Police Department",
-     "Neighborhood City Halls"], "Police, Health, & City Hall")
-    
+
+def preprocess(df):
+
     #-------------------------------------------------------------------------#
     # Compliance Label                                                        # 
     #-------------------------------------------------------------------------#
     df['compliance_label'] = np.where(df['compliance'] == 0, 
     "Non-Compliant", "Compliant")
-    
+
+        
     #-------------------------------------------------------------------------#
-    # Decode mailing zip code into regions                                    #
+    # agency_name: Combine agency name levels to meet regression conditions.  #
     #-------------------------------------------------------------------------#
-    df['region'] = df.zip_code.str[:3]
-    df = df.drop(columns = ["zip_code"])
+    df = df.replace(["Health Department",    "Detroit Police Department",
+        "Neighborhood City Halls"], "Police, Health, & City Hall")
+
 
     #-------------------------------------------------------------------------#
-    # city: Correct spelling of Detroit                                       #
+    # Agency Variables                                                     # 
+    #-------------------------------------------------------------------------#
+    df = df.sort_values(by = ['agency_name','ticket_issued_date', 'compliance'])
+    df['agency_tickets'] = df.groupby('agency_name').cumcount() + 1
+    df['agency_compliance'] = df.groupby('agency_name')['compliance'].cumsum()
+    df['agency_compliance_pct'] = df['agency_compliance'] * 100 / df['agency_tickets'] 
+
+
+    #-------------------------------------------------------------------------#
+    # Inspector Variables                                                     # 
+    #-------------------------------------------------------------------------#
+    df = df.sort_values(by = ['inspector_name','ticket_issued_date', 'compliance'])
+    df['inspector_tickets'] = df.groupby('inspector_name').cumcount() + 1
+    df['inspector_compliance'] = df.groupby('inspector_name')['compliance'].cumsum()
+    df['inspector_compliance_pct'] = df['inspector_compliance'] * 100 / df['inspector_tickets'] 
+
+
+    #-------------------------------------------------------------------------#
+    # Violator Variables                                                     # 
+    #-------------------------------------------------------------------------#
+    df = df.sort_values(by = ['violator_name','ticket_issued_date', 'compliance'])
+    df['violator_tickets'] = df.groupby('violator_name').cumcount() + 1
+    df['violator_compliance'] = df.groupby('violator_name')['compliance'].cumsum()
+    df['violator_compliance_pct'] = df['violator_compliance'] * 100 / df['violator_tickets'] 
+
+
+    #-------------------------------------------------------------------------#
+    # Violation Variables                                                     # 
+    #-------------------------------------------------------------------------#
+    df = df.sort_values(by = ['violation_code','ticket_issued_date', 'compliance'])
+    df['violation_tickets'] = df.groupby('violation_code').cumcount() + 1
+    df['violation_compliance'] = df.groupby('violation_code')['compliance'].cumsum()
+    df['violation_compliance_pct'] = df['violation_compliance'] * 100 / df['violation_tickets'] 
+
+
+    #-------------------------------------------------------------------------#
+    # Violation Street                                                        # 
+    #-------------------------------------------------------------------------#
+    df = df.sort_values(by = ['violation_street_name','ticket_issued_date', 'compliance'])
+    df['violation_street_tickets'] = df.groupby('violation_street_name').cumcount() + 1
+    df['violation_street_compliance'] = df.groupby('violation_street_name')['compliance'].cumsum()
+    df['violation_street_compliance_pct'] = df['violation_street_compliance'] * 100 / df['violation_street_tickets'] 
+
+
+    #-------------------------------------------------------------------------#
+    # City: Correct spelling of Detroit                                       #
     #-------------------------------------------------------------------------#
     df['city'] = df['city'].str.lower()
     df['city'].replace(['det', 'detroit'], 'detroit')
     df['city'] = df.city.replace("[^a-zA-Z\s+]", "", regex = True)
+
 
     #-------------------------------------------------------------------------#
     # Create dummy variables for out of town/state payors                     #
     #-------------------------------------------------------------------------#
     df['out_of_state'] = np.where(df['state'] == "MI", 'False', 'True')
     df['out_of_town'] = np.where(df['city'] == "detroit", 'False', 'True')       
-    df = df.drop(columns = ['city'])
+
+
+    #-------------------------------------------------------------------------#
+    # State Variables                                                         #  
+    #-------------------------------------------------------------------------#
+    df = df.sort_values(by = ['state','ticket_issued_date', 'compliance'])
+    df['state_tickets'] = df.groupby('state').cumcount() + 1
+    df['state_compliance'] = df.groupby('state')['compliance'].cumsum()
+    df['state_compliance_pct'] = df['state_compliance'] * 100 / df['state_tickets'] 
+
+
+    #-------------------------------------------------------------------------#
+    # Decode mailing zip code into regions                                    #
+    #-------------------------------------------------------------------------#
+    df['region'] = df.zip_code.str[:3]
+
+
+    #-------------------------------------------------------------------------#
+    # Region Compliance                                                       #
+    #-------------------------------------------------------------------------#
+    df = df.sort_values(by = ['region','ticket_issued_date', 'compliance'])
+    df['region_tickets'] = df.groupby('region').cumcount() + 1
+    df['region_compliance'] = df.groupby('region')['compliance'].cumsum()
+    df['region_compliance_pct'] = df['region_compliance'] * 100 / df['region_tickets'] 
+
 
     #-------------------------------------------------------------------------#
     # Impute missing hearing dates:ticket_issued_date + median payment_window # 
     #-------------------------------------------------------------------------#
     pd.options.mode.chained_assignment = None    
+    
+    # Convert dates to datetime objects
+    df['ticket_issued_date'] = pd.to_datetime(df['ticket_issued_date'])
+    df['hearing_date'] = pd.to_datetime(df['hearing_date'])
+
+    # Compute payment window for non-null hearing dates
     df1 = df[pd.notnull(df['hearing_date'])]    
     df1['payment_window'] = df1['hearing_date'].sub(df1['ticket_issued_date'], axis=0)
-    mean_payment_window = (df1['payment_window'] / np.timedelta64(1, 'D')).mean()    
+    median_payment_window = (df1['payment_window'] / np.timedelta64(1, 'D')).median()    
 
+    # Correct hearing dates on or before ticket_issued_date
+    df['hearing_date'] = np.where(df['hearing_date'] <= df['ticket_issued_date'],
+                                df['hearing_date'] + pd.to_timedelta(median_payment_window,'d'),
+                                df['hearing_date'])
+
+    # Impute payment window for null hearing dates
     df2 = df[pd.isnull(df['hearing_date'])]    
-    df2['payment_window'] = pd.to_timedelta(mean_payment_window,'d')
+    df2['payment_window'] = pd.to_timedelta(median_payment_window,'d')
     df2['hearing_date'] = df2['ticket_issued_date'] + df2['payment_window']
-    
+
+    # Recombine observations
     df = pd.concat([df1, df2])
     df['payment_window'] = df['payment_window'] / np.timedelta64(1, 'D')    
-    df['log_payment_window'] = np.log(df.payment_window)
+
 
     #-------------------------------------------------------------------------#
     # Log Judgment Amount                                                     # 
     #-------------------------------------------------------------------------#
-    df['log_judgment_amount'] = np.log(df.judgment_amount)
-    
+    df['log_judgment_amount'] = np.log(df.judgment_amount + 1)
+
     #-------------------------------------------------------------------------#
     # Daily_Payment: Judgment Amount / (Payment_Window + 1)                   # 
     #-------------------------------------------------------------------------#
-    df['daily_payment'] = df['judgment_amount'] / (df['payment_window'] + 1)
-    df['log_daily_payment'] = np.log(df.daily_payment)
-    
+    df['daily_payment'] = df['judgment_amount'] / (df['payment_window']+1)
+    df['log_daily_payment'] = np.log(df.daily_payment + 1)
+
+
     #-------------------------------------------------------------------------#
-    # Extract week and month from ticket and hearing dates, then discard dates# 
+    # Extract week and month from ticket and hearing dates                    # 
     #-------------------------------------------------------------------------#
     df['ticket_issued_month'] = df.ticket_issued_date.dt.month
     df['ticket_issued_month'] = df['ticket_issued_month'].apply(lambda x: calendar.month_abbr[x])
@@ -147,118 +213,18 @@ def preprocess(df, train = True):
     df['hearing_month'] = df.hearing_date.dt.month
     df['hearing_month'] = df['hearing_month'].apply(lambda x: calendar.month_abbr[x])
     df['hearing_week'] = df.hearing_date.dt.week
-    df = df.drop(columns = ["ticket_issued_date", "hearing_date"])
- 
+
     #-------------------------------------------------------------------------#
-    # Convert lat / long to x,y,z coordinates, then discard                   # 
+    # Convert lat / long to x,y,z coordinates                                 # 
     #-------------------------------------------------------------------------#
     df['x'] = np.cos(np.radians(df['lat'])) * np.cos(np.radians(df['lon']))
     df['y'] = np.cos(np.radians(df['lat'])) * np.sin(np.radians(df['lon']))
     df['z'] = np.sin(np.radians(df['lat']))
-    df = df.drop(columns = ['lat', 'lon'])
-        
-    #-------------------------------------------------------------------------#
-    # Agency Compliance Pct (acp): Agents % compliant violations              # 
-    #-------------------------------------------------------------------------#
-    acp = df[['agency_name', 'compliance', 'violation_code']].copy()
-    acp.loc[acp.compliance == 0, 'compliance'] = "agency_non_compliant"
-    acp.loc[acp.compliance == 1, 'compliance'] = "agency_compliant"
-    acp = acp.groupby(['agency_name', 'compliance'])['violation_code'].count().reset_index()
-    acp.columns = ['agency_name', 'compliance', 'counts']
-    acp = acp.pivot('agency_name', 'compliance', 'counts')
-    acp = acp.fillna(0)
-    acp['agency_violations'] = acp['agency_non_compliant'] + acp['agency_compliant'] 
-    acp['agency_compliance_pct'] = acp['agency_compliant'] * 100 / acp['agency_violations']
-    df = pd.merge(df, acp, on = 'agency_name', how = 'left')
 
-    #-------------------------------------------------------------------------#
-    # Inspector Compliance Pct (acp):                                         # 
-    #-------------------------------------------------------------------------#
-    icp = df[['inspector_name', 'compliance', 'violation_code']].copy()
-    icp.loc[icp.compliance == 0, 'compliance'] = "inspector_non_compliant"
-    icp.loc[icp.compliance == 1, 'compliance'] = "inspector_compliant"
-    icp = icp.groupby(['inspector_name', 'compliance'])['violation_code'].count().reset_index()
-    icp.columns = ['inspector_name', 'compliance', 'counts']
-    icp = icp.pivot('inspector_name', 'compliance', 'counts')
-    icp = icp.fillna(0)
-    icp['inspector_violations'] = icp['inspector_non_compliant'] + icp['inspector_compliant'] 
-    icp['inspector_compliance_pct'] = icp['inspector_compliant'] * 100 / icp['inspector_violations']
-    df = pd.merge(df, icp, on = 'inspector_name', how = 'left')
+    print(df.info())
 
-    #-------------------------------------------------------------------------#
-    # Out of Town Violator Compliance Pct (ootcp)                             # 
-    #-------------------------------------------------------------------------#
-    ootcp = df[['out_of_town', 'compliance', 'violation_code']].copy()
-    ootcp.loc[ootcp.compliance == 0, 'compliance'] = "out_of_town_non_compliant"
-    ootcp.loc[ootcp.compliance == 1, 'compliance'] = "out_of_town_compliant"
-    ootcp = ootcp.groupby(['out_of_town', 'compliance'])['violation_code'].count().reset_index()
-    ootcp.columns = ['out_of_town', 'compliance', 'counts']
-    ootcp = ootcp.pivot('out_of_town', 'compliance', 'counts')
-    ootcp = ootcp.fillna(0)
-    ootcp['out_of_town_violations'] = ootcp['out_of_town_non_compliant'] + ootcp['out_of_town_compliant'] 
-    ootcp['out_of_town_compliance_pct'] = ootcp['out_of_town_compliant'] * 100 / ootcp['out_of_town_violations']
-    df = pd.merge(df, ootcp, on = 'out_of_town', how = 'left')
-    
-    #-------------------------------------------------------------------------#
-    # State Compliance Pct (scp): State % compliant violations                # 
-    #-------------------------------------------------------------------------#
-    scp = df[['state', 'compliance', 'violation_code']].copy()
-    scp.loc[scp.compliance == 0, 'compliance'] = "state_non_compliant"
-    scp.loc[scp.compliance == 1, 'compliance'] = "state_compliant"
-    scp = scp.groupby(['state', 'compliance'])['violation_code'].count().reset_index()
-    scp.columns = ['state', 'compliance', 'counts']
-    scp = scp.pivot('state', 'compliance', 'counts')
-    scp = scp.fillna(0)
-    scp['state_violations'] = scp['state_non_compliant'] + scp['state_compliant'] 
-    scp['state_compliance_pct'] = scp['state_compliant'] * 100 / scp['state_violations']
-    df = pd.merge(df, scp, on = 'state', how = 'left')
-
-    #-------------------------------------------------------------------------#
-    # Out of State Violator Compliance Pct (ootcp)                             # 
-    #-------------------------------------------------------------------------#
-    ooscp = df[['out_of_state', 'compliance', 'violation_code']].copy()
-    ooscp.loc[ooscp.compliance == 0, 'compliance'] = "out_of_state_non_compliant"
-    ooscp.loc[ooscp.compliance == 1, 'compliance'] = "out_of_state_compliant"
-    ooscp = ooscp.groupby(['out_of_state', 'compliance'])['violation_code'].count().reset_index()
-    ooscp.columns = ['out_of_state', 'compliance', 'counts']
-    ooscp = ooscp.pivot('out_of_state', 'compliance', 'counts')
-    ooscp = ooscp.fillna(0)
-    ooscp['out_of_state_violations'] = ooscp['out_of_state_non_compliant'] + ooscp['out_of_state_compliant'] 
-    ooscp['out_of_state_compliance_pct'] = ooscp['out_of_state_compliant'] * 100 / ooscp['out_of_state_violations']
-    df = pd.merge(df, ooscp, on = 'out_of_state', how = 'left')
-
-    #-------------------------------------------------------------------------#
-    # Region Compliance Pct (rcp): Region % compliant violations              # 
-    #-------------------------------------------------------------------------#
-    rcp = df[['region', 'compliance', 'violation_code']].copy()
-    rcp.loc[rcp.compliance == 0, 'compliance'] = "region_non_compliant"
-    rcp.loc[rcp.compliance == 1, 'compliance'] = "region_compliant"
-    rcp = rcp.groupby(['region', 'compliance'])['violation_code'].count().reset_index()
-    rcp.columns = ['region', 'compliance', 'counts']
-    rcp = rcp.pivot('region', 'compliance', 'counts')
-    rcp = rcp.fillna(0)
-    rcp['region_violations'] = rcp['region_non_compliant'] + rcp['region_compliant'] 
-    rcp['region_compliance_pct'] = rcp['region_compliant'] * 100 / rcp['region_violations']
-    df = pd.merge(df, rcp, on = 'region', how = 'left')
-
-    #-------------------------------------------------------------------------#
-    # violation_code Compliance Pct (vcp):                                    # 
-    #-------------------------------------------------------------------------#
-    vcp = df[['violation_code', 'compliance', 'agency_name']].copy()
-    vcp.loc[vcp.compliance == 0, 'compliance'] = "violation_code_non_compliant"
-    vcp.loc[vcp.compliance == 1, 'compliance'] = "violation_code_compliant"
-    vcp = vcp.groupby(['violation_code', 'compliance'])['agency_name'].count().reset_index()
-    vcp.columns = ['violation_code', 'compliance', 'counts']
-    vcp = vcp.pivot('violation_code', 'compliance', 'counts')
-    vcp = vcp.fillna(0)
-    vcp['violation_code_violations'] = vcp['violation_code_non_compliant'] + vcp['violation_code_compliant'] 
-    vcp['violation_code_compliance_pct'] = vcp['violation_code_compliant'] * 100 / vcp['violation_code_violations']
-    df = pd.merge(df, vcp, on = 'violation_code', how = 'left')
-
-    print(df.info()) 
-    
-    return df
-
+    return(df)
+   
 #%%    
 # ============================================================================ #
 #                                 Write                                        #
@@ -270,11 +236,8 @@ def write(df, file_name):
 #%%
 # =============================================================================
 if __name__ == "__main__":
-    df = read()
-    train, validation = split(df)
-    qual, quant = sum_stats(df, verbose = False)
+    train = read("train.csv")
     train = select(train)
     train = preprocess(train)
     write(train, "train.csv")
-    write(validation, "validation.csv")
 

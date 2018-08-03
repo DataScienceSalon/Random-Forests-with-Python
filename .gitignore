@@ -5,3 +5,4 @@
 vignette/main_cache/
 vignette/main_files/
 __pycache__/
+data/processed/
