@@ -44,7 +44,6 @@ Xy = ['agency_name', 'inspector_name', 'violator_name', 'violation_street_number
 'judgment_amount', 'compliance'] 
 df = df[Xy]
 
-
   
 #%%
 # ============================================================================ #
